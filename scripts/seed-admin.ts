@@ -72,6 +72,8 @@ async function main() {
       display_name: ADMIN_EMAIL.split("@")[0],
       role: "admin",
       full_control: true,
+      // The bootstrap admin already has a password and can sign in.
+      status: "active",
       updated_at: new Date().toISOString(),
     },
     { onConflict: "id" }

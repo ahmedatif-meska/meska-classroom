@@ -18,10 +18,14 @@ const updateUser = vi.fn(
 );
 const signOut = vi.fn(async () => ({ error: null }));
 const rpc = vi.fn(async () => ({ data: null, error: null }));
+const profileEq = vi.fn(async () => ({ error: null }));
+const profileUpdate = vi.fn(() => ({ eq: profileEq }));
+const from = vi.fn(() => ({ update: profileUpdate }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(async () => ({
     auth: { getUser, updateUser, signOut },
+    from,
     rpc,
   })),
 }));
@@ -74,6 +78,8 @@ describe("updateAdminPassword (US2.1)", () => {
       updateAdminPassword({}, form("longenough1", "longenough1"))
     ).rejects.toThrow("REDIRECT:/admin");
     expect(updateUser).toHaveBeenCalledWith({ password: "longenough1" });
+    // An invited admin completing setup becomes active (idempotent for recovery).
+    expect(profileUpdate).toHaveBeenCalledWith({ status: "active" });
     expect(signOut).toHaveBeenCalledWith({ scope: "global" });
     expect(rpc).toHaveBeenCalledWith("log_admin_auth_event", {
       p_email: "admin@example.com",

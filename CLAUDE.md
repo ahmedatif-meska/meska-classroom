@@ -97,6 +97,6 @@ These are working if: fewer unnecessary changes in diffs, fewer rewrites from ov
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/003-admin-forgot-password/plan.md` (and its `research.md`, `data-model.md`,
-`contracts/reset-contracts.md`, `quickstart.md`).
+`specs/004-admin-management/plan.md` (and its `research.md`, `data-model.md`,
+`contracts/admin-management-contracts.md`, `quickstart.md`).
 <!-- SPECKIT END -->

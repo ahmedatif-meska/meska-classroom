@@ -71,6 +71,57 @@ const strings = {
   resetSuccess: "Your password has been changed. Sign in with your new password.",
   resetLinkInvalid: "This reset link is invalid or has expired.",
   requestNewLinkLabel: "Request a new link",
+
+  // Admin — Admin Management (list)
+  adminMgmtNavLabel: "Admin Management",
+  adminMgmtTitle: "Admin Management",
+  adminMgmtSubtitle: "Manage administrators and their access",
+  adminMgmtAddLabel: "Add Admin",
+  adminMgmtColName: "Name",
+  adminMgmtColEmail: "Email",
+  adminMgmtColRole: "Role",
+  adminMgmtColStatus: "Status",
+  adminMgmtColCreated: "Created",
+  adminMgmtColActions: "Actions",
+  adminMgmtRoleAdmin: "Admin",
+  adminMgmtStatusPending: "Pending",
+  adminMgmtStatusActive: "Active",
+  adminMgmtYouBadge: "You",
+  adminMgmtEmptyNote: "No administrators yet",
+
+  // Admin — Admin Management (create modal)
+  createAdminTitle: "Create New Admin",
+  createAdminSubtitle: "Create a new administrator account and assign a role.",
+  firstNameLabel: "First Name",
+  lastNameLabel: "Last Name",
+  adminMgmtRoleHelp: "Full administrative access to manage the tenant",
+  createAdminSubmitLabel: "Create Admin",
+  createAdminSubmittingLabel: "Creating…",
+  cancelLabel: "Cancel",
+  closeLabel: "Close",
+  adminMgmtNameRequired: "First and last name are required.",
+  adminMgmtEmailInvalid: "Enter a valid email address.",
+  adminMgmtEmailInUse: "An administrator with that email already exists.",
+  adminMgmtForbidden: "You don't have permission to do that.",
+  inviteSentNote: "An invite to set a password has been emailed to the new admin.",
+  adminMgmtInviteNotSent:
+    "Admin created, but the invite email couldn't be sent. Use “Resend invite” to try again.",
+
+  // Admin — Admin Management (resend invite)
+  resendInviteLabel: "Resend invite",
+  resendInviteSendingLabel: "Sending…",
+  resendInviteSentNote: "A new invite link has been emailed.",
+  adminMgmtResendNotPending: "This administrator has already set up their account.",
+  adminMgmtInviteFailed: "The invite couldn't be sent. Please try again.",
+
+  // Admin — Admin Management (remove)
+  removeAdminTitle: "Remove administrator",
+  removeAdminConfirm:
+    "Remove this administrator? They will lose admin access immediately.",
+  removeAdminSubmitLabel: "Remove",
+  removeAdminSubmittingLabel: "Removing…",
+  adminMgmtNoSelfRemove: "You can't remove your own account.",
+  adminMgmtLastAdmin: "You can't remove the last active administrator.",
 } as const;
 
 export default strings;

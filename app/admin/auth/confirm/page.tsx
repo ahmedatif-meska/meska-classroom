@@ -36,7 +36,9 @@ export default async function AdminConfirmRecovery({
   searchParams: Promise<{ token_hash?: string; type?: string }>;
 }) {
   const { token_hash, type } = await searchParams;
-  const linkPresent = Boolean(token_hash) && type === "recovery";
+  // Serves both password recovery (003) and a new admin's invite (004).
+  const linkPresent =
+    Boolean(token_hash) && (type === "recovery" || type === "invite");
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
@@ -61,6 +63,7 @@ export default async function AdminConfirmRecovery({
                 {strings.confirmRecoveryPrompt}
               </p>
               <input type="hidden" name="token_hash" value={token_hash} />
+              <input type="hidden" name="type" value={type} />
               <button
                 type="submit"
                 className="rounded-full bg-brand px-6 py-3.5 text-base font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
