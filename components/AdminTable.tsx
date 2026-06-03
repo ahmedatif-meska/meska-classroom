@@ -14,7 +14,8 @@ export type AdminRow = {
   created_at: string;
 };
 
-const COLS = "sm:grid-cols-[1.4fr_1.6fr_0.9fr_0.9fr_0.9fr_0.9fr]";
+const TH = "whitespace-nowrap px-6 py-3 font-semibold";
+const TD = "whitespace-nowrap px-6 py-4 align-middle";
 
 function formatCreated(iso: string): string {
   const d = new Date(iso);
@@ -73,72 +74,83 @@ export default function AdminTable({
 
   return (
     <div className="mt-6 overflow-hidden rounded-2xl bg-surface shadow-sm">
-      {/* Header — desktop only; the rows reflow to cards below `sm`. */}
-      <div
-        className={`hidden border-b border-slate-100 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-slate-400 sm:grid ${COLS} sm:gap-4`}
-      >
-        <span>{strings.adminMgmtColName}</span>
-        <span>{strings.adminMgmtColEmail}</span>
-        <span>{strings.adminMgmtColRole}</span>
-        <span>{strings.adminMgmtColStatus}</span>
-        <span>{strings.adminMgmtColCreated}</span>
-        <span className="text-right">{strings.adminMgmtColActions}</span>
+      {/* Horizontal scroll on narrow screens — the table keeps its shape and the
+          user swipes to reach the later columns (rather than reflowing to cards). */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] border-collapse text-left">
+          <thead>
+            <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+              <th className={TH}>{strings.adminMgmtColName}</th>
+              <th className={TH}>{strings.adminMgmtColEmail}</th>
+              <th className={TH}>{strings.adminMgmtColRole}</th>
+              <th className={TH}>{strings.adminMgmtColStatus}</th>
+              <th className={TH}>{strings.adminMgmtColCreated}</th>
+              <th className={`${TH} text-right`}>
+                {strings.adminMgmtColActions}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {admins.map((a) => {
+              const isSelf = a.id === currentUserId;
+              const isPending = a.status === "pending";
+              const name = adminDisplayName(a);
+              return (
+                <tr
+                  key={a.id}
+                  data-admin-row
+                  className="border-b border-slate-100 last:border-b-0"
+                >
+                  <td className={TD}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-ink">{name}</span>
+                      {isSelf ? (
+                        <span className="rounded-full border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-500">
+                          {strings.adminMgmtYouBadge}
+                        </span>
+                      ) : null}
+                    </div>
+                  </td>
+
+                  <td className={`${TD} text-sm text-slate-500`}>{a.email}</td>
+
+                  <td className={TD}>
+                    <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
+                      {strings.adminMgmtRoleAdmin}
+                    </span>
+                  </td>
+
+                  <td className={TD}>
+                    <StatusChip status={a.status} />
+                  </td>
+
+                  <td className={`${TD} text-sm text-slate-500`}>
+                    {formatCreated(a.created_at)}
+                  </td>
+
+                  <td className={TD}>
+                    <div className="flex items-center justify-end gap-2">
+                      {isPending ? (
+                        <ResendInviteButton
+                          adminId={a.id}
+                          adminEmail={a.email}
+                        />
+                      ) : null}
+                      {!isSelf ? (
+                        <RemoveAdminDialog
+                          adminId={a.id}
+                          adminEmail={a.email}
+                          adminName={name}
+                        />
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-
-      <ul>
-        {admins.map((a) => {
-          const isSelf = a.id === currentUserId;
-          const isPending = a.status === "pending";
-          const name = adminDisplayName(a);
-          return (
-            <li
-              key={a.id}
-              data-admin-row
-              className={`grid grid-cols-1 gap-2 border-b border-slate-100 px-6 py-4 last:border-b-0 sm:items-center sm:gap-4 ${COLS}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-ink">{name}</span>
-                {isSelf ? (
-                  <span className="rounded-full border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-500">
-                    {strings.adminMgmtYouBadge}
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="truncate text-sm text-slate-500" title={a.email}>
-                {a.email}
-              </div>
-
-              <div>
-                <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
-                  {strings.adminMgmtRoleAdmin}
-                </span>
-              </div>
-
-              <div>
-                <StatusChip status={a.status} />
-              </div>
-
-              <div className="text-sm text-slate-500">
-                {formatCreated(a.created_at)}
-              </div>
-
-              <div className="flex items-center gap-2 sm:justify-end">
-                {isPending ? (
-                  <ResendInviteButton adminId={a.id} adminEmail={a.email} />
-                ) : null}
-                {!isSelf ? (
-                  <RemoveAdminDialog
-                    adminId={a.id}
-                    adminEmail={a.email}
-                    adminName={name}
-                  />
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }
