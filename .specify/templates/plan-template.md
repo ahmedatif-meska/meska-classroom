@@ -53,7 +53,8 @@ specs/[###-feature]/
 ├── data-model.md        # Phase 1 output (/speckit-plan command)
 ├── quickstart.md        # Phase 1 output (/speckit-plan command)
 ├── contracts/           # Phase 1 output (/speckit-plan command)
-└── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+├── tasks.md             # Phase 2 output (/speckit-tasks command - NOT created by /speckit-plan)
+└── walkthrough.md       # Per-phase output (/speckit-implement - one section per implemented phase, Principle VII)
 ```
 
 ### Source Code (repository root)
@@ -102,6 +103,38 @@ ios/ or android/
 
 **Structure Decision**: [Document the selected structure and reference the real
 directories captured above]
+
+## Implementation Phases
+
+<!--
+  REQUIRED structure per constitution Principle VII (NON-NEGOTIABLE). Acceptance
+  criteria and test scenarios live at the PHASE level so a phase can be signed off
+  as a unit. Repeat the block below for each phase. /speckit-tasks consumes this
+  structure to produce tasks.md (## Phase N — <name> → ### User Story N.x → tasks).
+-->
+
+### Phase [N] — [phase name]
+
+#### User Story [N.x]: [As a … I want … so that …]
+
+- Description: [what this story delivers]
+
+[Repeat the User Story block for each story in the phase.]
+
+#### Acceptance Criteria (for the phase)
+
+<!-- Declarative, testable, one fact per bullet. -->
+
+- [ ] [Observable, verifiable fact the phase guarantees]
+- [ ] [Wave-scoped paths deny cross-wave access (Principle VI)]
+
+#### Test Scenarios (for the phase)
+
+<!-- Numbered Given / When / Then. Cover the golden path AND edge cases, including
+     the cross-wave denial case for any wave-scoped behavior (Principle VI). -->
+
+1. **Given** [precondition], **When** [action], **Then** [expected outcome].
+2. **Given** [edge/denial precondition], **When** [action], **Then** [expected outcome].
 
 ## Complexity Tracking
 
