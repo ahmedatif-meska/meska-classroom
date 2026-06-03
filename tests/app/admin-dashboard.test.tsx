@@ -15,7 +15,8 @@ vi.mock("@/lib/supabase/server", () => ({
 describe("Admin dashboard page", () => {
   it("renders the Admin panel label in the sidebar", async () => {
     render(await AdminDashboard());
-    expect(screen.getByText("Admin")).toBeInTheDocument();
+    // Appears in both the mobile top bar and the sidebar header.
+    expect(screen.getAllByText("Admin").length).toBeGreaterThan(0);
   });
 
   it("renders the Dashboard nav item", async () => {

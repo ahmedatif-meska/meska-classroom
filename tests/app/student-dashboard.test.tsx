@@ -5,7 +5,8 @@ import StudentDashboard from "@/app/student/dashboard/page";
 describe("Student dashboard page", () => {
   it("renders the Student panel label in the sidebar", () => {
     render(<StudentDashboard />);
-    expect(screen.getByText("Student")).toBeInTheDocument();
+    // Appears in both the mobile top bar and the sidebar header.
+    expect(screen.getAllByText("Student").length).toBeGreaterThan(0);
   });
 
   it("renders the Dashboard nav item", () => {

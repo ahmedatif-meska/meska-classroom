@@ -25,6 +25,8 @@ const strings = {
   // Dashboard (shared)
   dashboardLabel: "Dashboard",
   dashboardEmptyNote: "No data to display yet",
+  openNavLabel: "Open navigation menu",
+  closeNavLabel: "Close navigation menu",
   adminDashboardSubtitle: "Overview of your admin workspace",
   studentDashboardSubtitle: "Overview of your student workspace",
 
