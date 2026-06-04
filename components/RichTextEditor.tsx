@@ -163,7 +163,7 @@ export default function RichTextEditor({
   // Inline emphasis/lists — keep semantic tags (<b>/<i>/<u>/<ul>…).
   const exec = (command: string) => {
     try {
-      document.execCommand("styleWithCSS", false, false);
+      document.execCommand("styleWithCSS", false, "false");
     } catch {
       /* ignore */
     }
@@ -173,7 +173,7 @@ export default function RichTextEditor({
   // Block formatting (align/indent) — emit CSS the sanitizer keeps.
   const execBlock = (command: string) => {
     try {
-      document.execCommand("styleWithCSS", false, true);
+      document.execCommand("styleWithCSS", false, "true");
     } catch {
       /* ignore */
     }
