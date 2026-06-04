@@ -98,6 +98,6 @@ These are working if: fewer unnecessary changes in diffs, fewer rewrites from ov
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/005-instructors-management/plan.md` (and its `research.md`, `data-model.md`,
-`contracts/instructors-management-contracts.md`, `quickstart.md`).
+`specs/006-add-members/plan.md` (and its `research.md`, `data-model.md`,
+`contracts/add-members-contracts.md`, `quickstart.md`).
 <!-- SPECKIT END -->

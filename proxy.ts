@@ -2,9 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 /**
- * Refreshes the Supabase session and protects admin-only routes server-side
- * (FR-010). The /admin sign-in page itself stays public (excluded by the
- * matcher); only /admin/dashboard and below require a valid admin session.
+ * Refreshes the Supabase session and protects panel routes server-side. The
+ * sign-in pages themselves stay public (excluded by the matcher).
+ *
+ * Two role-gated path groups (006 added the student group):
+ * - `/admin/**` (dashboard, admins, instructors, members) require `role === 'admin'`
+ *   — anything else is redirected to `/admin`.
+ * - `/student/dashboard/**` requires an authenticated member (`role === 'student'`)
+ *   — anything else is redirected to `/student`.
  *
  * Next 16 `proxy` convention (replaces the deprecated `middleware`).
  */
@@ -36,11 +41,14 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const isAdmin = user?.app_metadata?.role === "admin";
+  const role = user?.app_metadata?.role;
 
-  if (!isAdmin) {
+  const isStudentRoute = request.nextUrl.pathname.startsWith("/student");
+  const allowed = isStudentRoute ? role === "student" : role === "admin";
+
+  if (!allowed) {
     const url = request.nextUrl.clone();
-    url.pathname = "/admin";
+    url.pathname = isStudentRoute ? "/student" : "/admin";
     return NextResponse.redirect(url);
   }
 
@@ -52,5 +60,7 @@ export const config = {
     "/admin/dashboard/:path*",
     "/admin/admins/:path*",
     "/admin/instructors/:path*",
+    "/admin/members/:path*",
+    "/student/dashboard/:path*",
   ],
 };

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import StudentHome from "@/app/student/page";
 
 vi.mock("next/image", () => ({
   default: ({
@@ -35,7 +34,12 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-describe("Student join-session page", () => {
+// StudentLoginForm is a client island that imports the server action — stub it.
+vi.mock("@/app/student/actions", () => ({ signInStudent: vi.fn() }));
+
+import StudentHome from "@/app/student/page";
+
+describe("Student sign-in page", () => {
   it("renders the Welcome heading", () => {
     render(<StudentHome />);
     expect(
@@ -43,23 +47,25 @@ describe("Student join-session page", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders Student ID and Password fields", () => {
+  it("renders Email and Password fields (email + password login)", () => {
     render(<StudentHome />);
-    expect(screen.getByLabelText(/student id/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
   });
 
-  it("does not render Full Name or Session Room fields", () => {
+  it("does not render Full Name, Student ID, or Session Room fields", () => {
     render(<StudentHome />);
     expect(screen.queryByLabelText(/full name/i)).toBeNull();
+    expect(screen.queryByLabelText(/student id/i)).toBeNull();
     expect(screen.queryByLabelText(/session room/i)).toBeNull();
   });
 
-  it("renders the Join session button", () => {
+  it("renders the Sign In button and the login-ID note", () => {
     render(<StudentHome />);
     expect(
-      screen.getByRole("button", { name: /join session/i })
+      screen.getByRole("button", { name: /sign in/i })
     ).toBeInTheDocument();
+    expect(screen.getByText(/login id is your email/i)).toBeInTheDocument();
   });
 
   it("renders the Meska logo", () => {
@@ -69,10 +75,9 @@ describe("Student join-session page", () => {
 
   it("contains no link to the admin panel (panel isolation)", () => {
     render(<StudentHome />);
-    const links = screen.queryAllByRole("link");
-    const adminLinks = links.filter((l) =>
-      l.getAttribute("href")?.includes("/admin")
-    );
+    const adminLinks = screen
+      .queryAllByRole("link")
+      .filter((l) => l.getAttribute("href")?.includes("/admin"));
     expect(adminLinks).toHaveLength(0);
   });
 });
