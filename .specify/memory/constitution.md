@@ -54,7 +54,19 @@ study sessions, and accessed primarily on mobile across phones, tablets, and des
   UI components), semantic HTML, labelled controls, and meaningful alt text. The neon-blue
   brand token MUST be verified to meet contrast on both white and `#EEF3F8`.
 - Data-heavy views MUST adopt a documented mobile strategy (responsive, card transform,
-  or contained scroll). Concrete thresholds live in the Quality Gates checklist.
+  or contained scroll). Concrete thresholds live in the Quality Gates checklist. When the
+  strategy is contained scroll (e.g. a wide table), the horizontal scroll MUST be confined
+  to that element — the page/body MUST NOT scroll sideways.
+- Primary navigation that is a fixed sidebar on desktop MUST collapse to an off-canvas
+  drawer on mobile: hidden by default below the breakpoint, opened by a labelled toggle,
+  shown over the content with a dismissable backdrop, and restored to the static column at
+  the breakpoint and up. A fixed-width sidebar MUST NOT share a flex row with content on
+  small screens. The toggle MUST expose `aria-expanded`/`aria-controls`, and the drawer
+  MUST close on backdrop tap, an explicit control, nav selection, and `Escape`.
+- Layout MUST NOT let controls stretch unintentionally: an action paired with a heading
+  keeps its natural size (the heading takes the slack and truncates), it is not widened to
+  fill a stacked column. Promote a layout component to a Client Component only at the
+  smallest scope that needs the interactivity; server-rendered slots pass through as props.
 
 ### V. Performance & Responsiveness
 
@@ -149,10 +161,12 @@ principles reference:
 2. **Tests** — required tests pass, including the cross-wave denial case for any
    wave-scoped path.
 3. **Responsive & accessible** — validated at **320 / 390 / 430 / 768px and desktop**;
-   inputs use **≥16px font on mobile**; no horizontal scroll, clipping, or
-   overlap; modals and overlays scroll internally; fixed bars respect device safe areas;
-   portrait and landscape both work; meets **WCAG 2.1 AA** (≥4.5:1 contrast, visible focus,
-   labelled controls).
+   inputs use **≥16px font on mobile**; no horizontal scroll at the page/body level
+   (only inside a deliberately scrollable element), clipping, or overlap; sidebar nav
+   collapses to a dismissable drawer on mobile; actions keep their natural size beside a
+   heading rather than stretching full-width; modals and overlays scroll internally; fixed
+   bars respect device safe areas; portrait and landscape both work; meets **WCAG 2.1 AA**
+   (≥4.5:1 contrast, visible focus, labelled controls).
 4. **UX consistency** — shared palette/tokens; loading, empty, and error states defined.
 5. **Performance & resilience** — no regression against **LCP < 2.5s / CLS < 0.1 / INP <
    200ms** on a mid-tier Android over Slow-4G; query and payload bounds respected; drafts
@@ -177,6 +191,6 @@ This constitution supersedes other development practices; on conflict, it wins.
 - `CLAUDE.md` provides runtime guidance and MUST stay consistent with this document; if
   they diverge, this document governs and `CLAUDE.md` MUST be corrected.
 
-**Version**: 2.0.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-02
+**Version**: 2.1.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-04
 
 

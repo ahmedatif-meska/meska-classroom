@@ -38,11 +38,12 @@ Each panel root directory also contains `loading.tsx`, `error.tsx` (`'use client
 
 ### Shell components (`components/`)
 
-- `DashboardShell` — Server Component; takes `panelName: string` + `children`. Renders a fixed left sidebar (panel name in brand blue, single "Dashboard" nav item) alongside a scrollable `<main>`. Used by both dashboard pages.
+- `DashboardShell` — **Client Component** (`'use client'`; owns the mobile drawer open/closed `useState`). Takes `panelName`, `navItems`, `activeHref`, `footer`, and `children`. On `md`+ it renders the fixed left sidebar (panel name in brand blue) alongside a scrollable `<main>`, as before. Below `md` the sidebar is an off-canvas drawer (`fixed … -translate-x-full`, slides in over a `bg-ink/40` backdrop) opened by a hamburger top bar; it closes on backdrop tap, the in-drawer chevron, any nav-link click, or `Escape`. The toggle wires `aria-label`/`aria-expanded`/`aria-controls`. Server-rendered `footer`/`children` (e.g. `AdminSidebarFooter`, page content) are passed in as props and cross the boundary unchanged. Used by both dashboard pages and the admins page.
+- `AdminTable` — Server Component; renders a semantic `<table>` inside `overflow-x-auto` with `min-w-[760px]` and `whitespace-nowrap` cells, so on mobile it scrolls horizontally rather than reflowing to cards. Each `<tr>` carries `data-admin-row` (a test hook).
 - `Logo` — Server Component; `next/image` wrapped in `next/link`; `aria-label` and `alt` from `lib/strings.ts`. Takes `homeHref` prop. Used on the student sign-in page.
 - `PanelShell` — exists in `components/` but is currently unused (dead code from early implementation). The sign-in pages inline their own centering wrapper.
 
-All components are Server Components. Only `error.tsx` files are `'use client'`.
+Components are Server Components by default; the interactive ones are `'use client'` (`DashboardShell`, `AddAdminModal`, `ResendInviteButton`, `RemoveAdminDialog`, and every `error.tsx`).
 
 ### Config & copy (`lib/`)
 
@@ -71,7 +72,7 @@ Vitest + React Testing Library (jsdom). Config: `vitest.config.ts` (globals enab
 
 ## Project principles
 
-All work MUST comply with the project constitution at `.specify/memory/constitution.md` (currently **v2.0.0**; this file MUST stay consistent with it). In particular:
+All work MUST comply with the project constitution at `.specify/memory/constitution.md` (currently **v2.1.0**; this file MUST stay consistent with it). In particular:
 
 - **Mobile-first, responsive & accessible** — every screen/component works from 320px through desktop; validate at 320, 390, 430, 768px and desktop. Interactive elements must be touch-friendly, keyboard accessible, and show visible focus; mobile inputs use ≥16px font. Target **WCAG 2.1 AA** (≥4.5:1 contrast). The interface is **English only, left-to-right (LTR)**; internationalization, multi-language support, and RTL are out of scope until a future amendment reintroduces them.
 - **Brand & UX consistency** — neon blue on white, `#EEF3F8` page background, tight palette via shared tokens; define loading/empty/error states. The Meska logo (canonical asset `MeskaLogo.png`) sits in the persistent header on every screen and links to the user's panel home — Student home for students, Admin home for admins (context-aware, never crossing panels).
@@ -97,6 +98,6 @@ These are working if: fewer unnecessary changes in diffs, fewer rewrites from ov
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan at
-`specs/004-admin-management/plan.md` (and its `research.md`, `data-model.md`,
-`contracts/admin-management-contracts.md`, `quickstart.md`).
+`specs/005-instructors-management/plan.md` (and its `research.md`, `data-model.md`,
+`contracts/instructors-management-contracts.md`, `quickstart.md`).
 <!-- SPECKIT END -->
