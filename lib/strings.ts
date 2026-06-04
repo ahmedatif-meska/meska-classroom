@@ -196,6 +196,122 @@ const strings = {
   rteColorGreen: "Green",
   rteColorAmber: "Amber",
   rteColorPurple: "Purple",
+
+  // Admin — Members (list)
+  membersNavLabel: "Members",
+  membersTitle: "Members",
+  membersSubtitle: "Manage members and their wave enrollment",
+  membersAddLabel: "Add Members",
+  membersDownloadTemplate: "Download CSV template",
+  membersColName: "Name",
+  membersColWhatsapp: "WhatsApp",
+  membersColEmail: "Email",
+  membersColWave: "Wave",
+  membersColStatus: "Status",
+  membersColActions: "Actions",
+  membersStatusPending: "Pending",
+  membersStatusActive: "Active",
+  membersEmptyNote: "No members yet — add your first one",
+  membersViewLabel: "View",
+
+  // Admin — Members (add chooser)
+  addMembersChooserTitle: "Add Members",
+  addMembersChooserSubtitle: "Add one member, or bulk-upload a CSV.",
+  addMemberFormOption: "Add by form",
+  addMemberFormOptionHelp: "Create a single member.",
+  bulkUploadOption: "Bulk upload",
+  bulkUploadOptionHelp: "Import many members from a CSV.",
+
+  // Admin — Members (single add form)
+  memberFormTitle: "Add Member",
+  memberFormSubtitle: "Create a member and assign them to a wave.",
+  memberFullNameLabel: "Full Name",
+  memberWhatsappLabel: "WhatsApp Mobile",
+  memberWhatsappPlaceholder: "e.g. +201234567890",
+  memberWaveLabel: "Wave",
+  memberWavePlaceholder: "Select a wave…",
+  memberFormSubmitLabel: "Add Member",
+  memberFormSubmittingLabel: "Adding…",
+  memberMgmtNameRequired: "Full name is required.",
+  memberMgmtWhatsappRequired: "WhatsApp mobile is required.",
+  memberMgmtEmailInvalid: "Enter a valid email address.",
+  memberMgmtWaveRequired: "Select a wave.",
+  memberMgmtEmailInUse: "A member with that email already exists.",
+  memberMgmtForbidden: "You don't have permission to do that.",
+  memberInviteSentNote:
+    "An onboarding email to set a password has been emailed to the new member.",
+  memberInviteNotSent:
+    "Member created, but the onboarding email couldn't be sent. Use “Resend invite” to try again.",
+
+  // Admin — Members (resend invite)
+  memberResendInviteLabel: "Resend invite",
+  memberResendSendingLabel: "Sending…",
+  memberResendSentNote: "A new invite link has been emailed.",
+  memberMgmtResendNotPending: "This member has already set up their account.",
+  memberMgmtInviteFailed: "The invite couldn't be sent. Please try again.",
+
+  // Admin — Members (remove)
+  removeMemberLabel: "Remove member",
+  removeMemberTitle: "Remove member",
+  removeMemberConfirm:
+    "This permanently deletes the member and their account. This can't be undone.",
+  removeMemberSubmitLabel: "Remove",
+  removeMemberSubmittingLabel: "Removing…",
+  removeMemberFailed: "The member couldn't be removed. Please try again.",
+
+  // Admin — Members (bulk upload)
+  bulkFileLabel: "CSV file",
+  bulkFileHelp: "Use the template columns: Full Name, WhatsApp Number, Email.",
+  bulkValidateLabel: "Continue",
+  bulkBackLabel: "Back",
+  bulkChooseWaveTitle: "Assign a wave",
+  bulkChooseWaveSubtitle:
+    "These members will all be added to the selected wave.",
+  bulkReadyNote: "rows ready to import",
+  bulkSubmitLabel: "Create members",
+  bulkSubmittingLabel: "Creating…",
+  bulkInvalidCsv:
+    "The file couldn't be read. Download the template and try again.",
+  bulkWrongColumns:
+    "The file columns don't match the template (Full Name, WhatsApp Number, Email).",
+  bulkNoRows: "The file has no member rows.",
+  bulkBlankCell: "Every field is required — empty value(s) in row(s):",
+  bulkBadEmail: "Invalid email in row(s):",
+  bulkDuplicateInFile: "Duplicate email in the file at row(s):",
+  bulkCreatedLabel: "created",
+  bulkSkippedLabel: "skipped (duplicate or already a member)",
+  bulkDoneLabel: "Done",
+
+  // Admin — Member information page (QR scan target)
+  memberInfoTitle: "Member",
+  memberInfoStatusLabel: "Status",
+  memberInfoBackLabel: "Back to members",
+  memberNotFound: "Member not found.",
+
+  // Student — sign in (email + password)
+  studentSignInSubtitle: "Sign in with your email and password",
+  studentEmailRequired: "Email and password are required.",
+  studentAuthFailed: "Invalid email or password.",
+  studentSigningIn: "Signing in…",
+  studentSignInLabel: "Sign In",
+  studentLoginIdIsEmailNote: "Your login ID is your email address.",
+  studentSignOutLabel: "Sign out",
+
+  // Student — onboarding confirm + set password
+  studentConfirmPrompt: "Confirm it's you to continue setting your password.",
+  studentConfirmLabel: "Continue",
+  studentSetPasswordTitle: "Set your password",
+  studentSetPasswordSubtitle:
+    "Choose a password to finish setting up your account. Your login ID is your email address.",
+  studentSetPasswordSubmitLabel: "Set password",
+  studentSetPasswordSubmittingLabel: "Saving…",
+  studentResetLinkInvalid: "This link is invalid or has expired.",
+
+  // Student — home QR
+  studentQrTitle: "Your QR code",
+  studentQrSubtitle: "Show this at check-in.",
+  studentQrAlt: "Your member QR code",
+  studentQrPlaceholder: "Your QR code isn't ready yet.",
 } as const;
 
 export default strings;
