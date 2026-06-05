@@ -287,6 +287,18 @@ const strings = {
   memberInfoStatusLabel: "Status",
   memberInfoBackLabel: "Back to members",
   memberNotFound: "Member not found.",
+  memberInfoUnauthorizedTitle: "Unauthorized",
+  memberInfoUnauthorizedNote:
+    "Member information is admin-only. Sign in to the admin panel and use Scan QR on the Members page.",
+  memberInfoUnauthorizedCta: "Go to admin sign-in",
+
+  // Admin — Members (scan QR)
+  membersScanLabel: "Scan QR",
+  scanTitle: "Scan member QR",
+  scanInstruction: "Point your camera at a member's QR code.",
+  scanInvalid: "That isn't a Meska member QR code. Try another.",
+  scanCameraError:
+    "Couldn't access the camera. Allow camera permission and try again.",
 
   // Student — sign in (email + password)
   studentSignInSubtitle: "Sign in with your email and password",

@@ -6,10 +6,15 @@ import { createServerClient } from "@supabase/ssr";
  * sign-in pages themselves stay public (excluded by the matcher).
  *
  * Two role-gated path groups (006 added the student group):
- * - `/admin/**` (dashboard, admins, instructors, members) require `role === 'admin'`
+ * - `/admin/**` (dashboard, admins, instructors, members list) require `role === 'admin'`
  *   — anything else is redirected to `/admin`.
  * - `/student/dashboard/**` requires an authenticated member (`role === 'student'`)
  *   — anything else is redirected to `/student`.
+ *
+ * The member-info page `/admin/members/<id>` (the QR scan target) is deliberately
+ * NOT matched here: it self-gates and renders an explicit "Unauthorized" screen for
+ * non-admins, so someone scanning the QR with a phone camera sees a clear denial
+ * rather than being bounced to the sign-in form.
  *
  * Next 16 `proxy` convention (replaces the deprecated `middleware`).
  */
@@ -60,7 +65,7 @@ export const config = {
     "/admin/dashboard/:path*",
     "/admin/admins/:path*",
     "/admin/instructors/:path*",
-    "/admin/members/:path*",
+    "/admin/members",
     "/student/dashboard/:path*",
   ],
 };

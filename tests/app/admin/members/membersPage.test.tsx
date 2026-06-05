@@ -18,11 +18,15 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+// ScanMemberButton (client island) uses the app router.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 // Stub the Server Actions so the client islands don't pull server-only deps.
 vi.mock("@/app/admin/members/actions", () => ({
   createMember: vi.fn(),
   bulkCreateMembers: vi.fn(),
   resendMemberInvite: vi.fn(),
+  removeMember: vi.fn(),
 }));
 
 type Student = {

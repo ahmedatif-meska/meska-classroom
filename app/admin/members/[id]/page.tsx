@@ -3,7 +3,34 @@ import DashboardShell from "@/components/DashboardShell";
 import AdminSidebarFooter from "@/components/AdminSidebarFooter";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
+import { assertAdminSession } from "@/lib/auth/adminGate";
 import strings from "@/lib/strings";
+
+/**
+ * Shown to a non-admin who opens the QR target directly (e.g. scans the code with a
+ * phone camera instead of using the in-panel Scan QR button). Member PII stays
+ * admin-only; this is a plain denial, not the admin shell.
+ */
+function Unauthorized() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl bg-surface p-8 text-center shadow-sm sm:p-10">
+        <h1 className="text-2xl font-bold text-ink">
+          {strings.memberInfoUnauthorizedTitle}
+        </h1>
+        <p className="mt-3 text-sm text-slate-500">
+          {strings.memberInfoUnauthorizedNote}
+        </p>
+        <Link
+          href="/admin"
+          className="mt-6 inline-block rounded-full bg-brand px-6 py-3 text-sm font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          {strings.memberInfoUnauthorizedCta}
+        </Link>
+      </div>
+    </main>
+  );
+}
 
 type MemberDetail = {
   id: string;
@@ -37,6 +64,13 @@ export default async function MemberInfoPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // The QR target self-gates (it is intentionally not behind the proxy). A
+  // non-admin — including someone scanning the code outside the panel — gets an
+  // explicit denial instead of the member's PII.
+  if (!assertAdminSession(user ? { user } : null).ok) {
+    return <Unauthorized />;
+  }
 
   const { data } = await supabase
     .from("students")

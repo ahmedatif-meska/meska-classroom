@@ -21,14 +21,18 @@ type Member = {
 } | null;
 
 let member: Member = null;
+type SessionUser = {
+  id: string;
+  email?: string;
+  app_metadata?: Record<string, unknown>;
+} | null;
+let currentUser: SessionUser = null;
 
 const maybeSingle = vi.fn(async () => ({ data: member, error: null }));
 const eq = vi.fn(() => ({ maybeSingle }));
 const select = vi.fn(() => ({ eq }));
 const from = vi.fn(() => ({ select }));
-const getUser = vi.fn(async () => ({
-  data: { user: { id: "admin-id", email: "ahmedatif@meska.ai" } },
-}));
+const getUser = vi.fn(async () => ({ data: { user: currentUser } }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(async () => ({ auth: { getUser }, from })),
@@ -38,6 +42,11 @@ import MemberInfoPage from "@/app/admin/members/[id]/page";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  currentUser = {
+    id: "admin-id",
+    email: "ahmedatif@meska.ai",
+    app_metadata: { role: "admin" },
+  };
 });
 
 describe("Member information page (US4.1)", () => {
@@ -59,12 +68,30 @@ describe("Member information page (US4.1)", () => {
   });
 
   it("shows not-found (no PII) when the row is not readable / missing", async () => {
-    // A member session would be denied by RLS → no row → not-found, never PII.
     member = null;
     render(await MemberInfoPage({ params: Promise.resolve({ id: "nope" }) }));
     expect(screen.getByText(strings.memberNotFound)).toBeInTheDocument();
     // No member PII (field labels only render when a member row is present).
     expect(screen.queryByText(strings.memberWhatsappLabel)).not.toBeInTheDocument();
     expect(screen.queryByText("mona@example.com")).not.toBeInTheDocument();
+  });
+
+  it("shows Unauthorized (no PII, no data query) for a non-admin scanning the QR", async () => {
+    currentUser = null; // someone scanning with a phone camera, not signed in
+    member = {
+      id: "m1",
+      full_name: "Mona Ali",
+      whatsapp: "+201111111111",
+      email: "mona@example.com",
+      status: "active",
+      tenant: { name: "Online" },
+    };
+    render(await MemberInfoPage({ params: Promise.resolve({ id: "m1" }) }));
+    expect(
+      screen.getByText(strings.memberInfoUnauthorizedTitle)
+    ).toBeInTheDocument();
+    expect(screen.queryByText("mona@example.com")).not.toBeInTheDocument();
+    // Gate happens before any DB read.
+    expect(from).not.toHaveBeenCalled();
   });
 });

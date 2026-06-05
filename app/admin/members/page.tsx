@@ -3,6 +3,7 @@ import AdminSidebarFooter from "@/components/AdminSidebarFooter";
 import MemberTable, { type MemberRow } from "@/components/MemberTable";
 import AddMembersModal from "@/components/AddMembersModal";
 import DownloadTemplateButton from "@/components/DownloadTemplateButton";
+import ScanMemberButton from "@/components/ScanMemberButton";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
 import strings from "@/lib/strings";
@@ -64,6 +65,7 @@ export default async function MembersPage() {
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <ScanMemberButton />
             <DownloadTemplateButton />
             <AddMembersModal waves={waves} />
           </div>
