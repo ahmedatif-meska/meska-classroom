@@ -55,7 +55,7 @@ export default async function MembersPage() {
       footer={<AdminSidebarFooter email={user?.email ?? ""} />}
     >
       <div className="p-8">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-bold text-ink">
               {strings.membersTitle}
@@ -64,7 +64,9 @@ export default async function MembersPage() {
               {strings.membersSubtitle}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3">
+          {/* Wrap on small screens so the actions never overflow the viewport
+              (no page-level horizontal scroll) or overlap the title. */}
+          <div className="flex flex-wrap items-center gap-3 sm:shrink-0">
             <ScanMemberButton />
             <DownloadTemplateButton />
             <AddMembersModal waves={waves} />

@@ -11,10 +11,10 @@ import { createServerClient } from "@supabase/ssr";
  * - `/student/dashboard/**` requires an authenticated member (`role === 'student'`)
  *   — anything else is redirected to `/student`.
  *
- * The member-info page `/admin/members/<id>` (the QR scan target) is deliberately
- * NOT matched here: it self-gates and renders an explicit "Unauthorized" screen for
- * non-admins, so someone scanning the QR with a phone camera sees a clear denial
- * rather than being bounced to the sign-in form.
+ * The member-info page `/admin/members/<id>` (the QR scan target) IS matched here so
+ * its session is refreshed, but it is exempt from the redirect: it self-gates and
+ * renders an explicit "Unauthorized" screen for non-admins, so someone scanning the
+ * QR with a phone camera sees a clear denial rather than being bounced to sign-in.
  *
  * Next 16 `proxy` convention (replaces the deprecated `middleware`).
  */
@@ -42,13 +42,24 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  // getUser() validates the JWT with the auth server (more secure than getSession).
+  // getUser() validates the JWT with the auth server (more secure than getSession)
+  // AND refreshes the session, persisting rotated tokens onto `response`. Every
+  // protected route must pass through here so the refresh is written — otherwise a
+  // Server Component would try to refresh with read-only cookies and break.
   const {
     data: { user },
   } = await supabase.auth.getUser();
   const role = user?.app_metadata?.role;
 
-  const isStudentRoute = request.nextUrl.pathname.startsWith("/student");
+  const path = request.nextUrl.pathname;
+  const isStudentRoute = path.startsWith("/student");
+
+  // The member-info page `/admin/members/<id>` (QR scan target) self-gates and
+  // renders its own "Unauthorized" screen for non-admins. We still run through the
+  // proxy to refresh the session, but we must NOT redirect — let the page decide.
+  const isMemberDetail = /^\/admin\/members\/[^/]+$/.test(path);
+  if (isMemberDetail) return response;
+
   const allowed = isStudentRoute ? role === "student" : role === "admin";
 
   if (!allowed) {
@@ -65,7 +76,7 @@ export const config = {
     "/admin/dashboard/:path*",
     "/admin/admins/:path*",
     "/admin/instructors/:path*",
-    "/admin/members",
+    "/admin/members/:path*",
     "/student/dashboard/:path*",
   ],
 };

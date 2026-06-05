@@ -39,7 +39,6 @@ export default function ScanMemberButton() {
   useEffect(() => {
     if (!open) return;
     handledRef.current = false;
-    setError(null);
     let cancelled = false;
 
     (async () => {
@@ -88,7 +87,10 @@ export default function ScanMemberButton() {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
         className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         <CameraIcon />

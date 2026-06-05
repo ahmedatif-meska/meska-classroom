@@ -46,4 +46,20 @@ describe("middleware admin-route protection (FR-010)", () => {
     // NextResponse.next() — no redirect location header
     expect(res.headers.get("location")).toBeNull();
   });
+
+  it("does NOT redirect the member-info QR target — it self-gates (session still refreshed)", async () => {
+    // A non-admin scanning the QR must reach the page (which renders Unauthorized),
+    // not get bounced to sign-in; and the proxy must still run to refresh cookies.
+    currentUser = null;
+    const res = await proxy(
+      new NextRequest("http://localhost/admin/members/abc-123")
+    );
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("still redirects a non-admin away from the members LIST", async () => {
+    currentUser = { app_metadata: { role: "student" } };
+    const res = await proxy(new NextRequest("http://localhost/admin/members"));
+    expect(res.headers.get("location")).toBe("http://localhost/admin");
+  });
 });
