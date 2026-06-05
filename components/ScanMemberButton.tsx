@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { targetPathFromScan } from "@/lib/members/scan";
 import strings from "@/lib/strings";
 
@@ -27,7 +26,6 @@ function CameraIcon() {
 const SCANNER_ID = "member-qr-scanner";
 
 export default function ScanMemberButton() {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Hold the active scanner so we can stop the camera on close/unmount.
@@ -59,7 +57,13 @@ export default function ScanMemberButton() {
               return;
             }
             handledRef.current = true;
-            void scanner.stop().then(() => router.push(path));
+            // Stop the camera, then do a FULL-PAGE navigation (not router.push):
+            // a client-side nav would unmount this page while html5-qrcode is still
+            // tearing down its <video>, and that race throws into the error
+            // boundary ("Something went wrong"). A document navigation lets the
+            // browser drop the camera/page cleanly and loads the target via SSR.
+            const go = () => window.location.assign(path);
+            scanner.stop().then(go, go);
           },
           () => {
             // per-frame decode misses are expected; ignore.
@@ -78,10 +82,16 @@ export default function ScanMemberButton() {
         scanner
           .stop()
           .catch(() => {})
-          .finally(() => scanner.clear());
+          .finally(() => {
+            try {
+              scanner.clear();
+            } catch {
+              // clear() can throw if the scanner is mid-teardown — safe to ignore.
+            }
+          });
       }
     };
-  }, [open, router]);
+  }, [open]);
 
   return (
     <>
