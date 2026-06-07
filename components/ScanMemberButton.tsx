@@ -43,10 +43,9 @@ function cameraErrorMessage(e: unknown): string {
 }
 
 /**
- * Decode result → safe in-app navigation. Both the live scanner and the photo
- * fallback funnel through here so a stray/foreign QR can never redirect off-app.
- * Returns true when it navigated. Uses a FULL-PAGE load (window.location) to avoid
- * the React/camera teardown race that a client-side router.push would trigger.
+ * Decode result → safe in-app navigation: a stray/foreign QR can never redirect
+ * off-app. Returns true when it navigated. Uses a FULL-PAGE load (window.location)
+ * to avoid the React/camera teardown race a client-side router.push would trigger.
  */
 function navigateIfMember(decoded: string): boolean {
   const path = targetPathFromScan(decoded);
@@ -59,8 +58,6 @@ export default function ScanMemberButton() {
   const [open, setOpen] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [decoding, setDecoding] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Hold the active scanner so we can stop the camera on close/unmount.
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(
     null
@@ -125,44 +122,6 @@ export default function ScanMemberButton() {
       }
     };
   }, [open, attempt]);
-
-  // Photo fallback: decode a QR from a still photo taken with the NATIVE camera
-  // (<input capture>). This works where the live camera doesn't — notably Chrome on
-  // iOS and in-app browsers, which can't grant getUserMedia to web pages.
-  async function onPhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    // Allow re-selecting the same file next time (guarded: some environments
-    // disallow assigning to a file input's value).
-    try {
-      e.target.value = "";
-    } catch {
-      // ignore
-    }
-    if (!file) return;
-
-    setError(null);
-    setDecoding(true);
-    try {
-      const { Html5Qrcode } = await import("html5-qrcode");
-      const reader = new Html5Qrcode(SCANNER_ID);
-      let decoded: string;
-      try {
-        decoded = await reader.scanFile(file, false);
-      } finally {
-        try {
-          reader.clear();
-        } catch {
-          // clear() can throw mid-teardown — safe to ignore.
-        }
-      }
-      if (!navigateIfMember(decoded)) setError(strings.scanInvalid);
-    } catch {
-      // scanFile rejects when no QR is found in the image.
-      setError(strings.scanPhotoUnreadable);
-    } finally {
-      setDecoding(false);
-    }
-  }
 
   return (
     <>
@@ -231,29 +190,10 @@ export default function ScanMemberButton() {
               </div>
             ) : null}
 
-            {/* Native-camera photo fallback — always available so browsers that
-                can't grant the live camera (e.g. Chrome on iOS) still have a path. */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={onPhotoSelected}
-            />
-            <button
-              type="button"
-              disabled={decoding}
-              onClick={() => fileInputRef.current?.click()}
-              className="mt-4 w-full rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60"
-            >
-              {decoding ? strings.loadingLabel : strings.scanPhotoLabel}
-            </button>
-
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="mt-3 w-full rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-ink hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              className="mt-5 w-full rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-ink hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
               {strings.cancelLabel}
             </button>
