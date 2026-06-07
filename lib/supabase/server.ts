@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { withPersistentMaxAge } from "@/lib/supabase/cookieOptions";
 
 /**
  * Supabase client for Server Components, Server Actions, and Route Handlers.
@@ -20,7 +21,8 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+              // Persist auth cookies so the session survives an app close (US1).
+              cookieStore.set(name, value, withPersistentMaxAge(options));
             }
           } catch {
             // setAll called from a Server Component (read-only cookies) —

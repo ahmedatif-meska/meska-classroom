@@ -63,3 +63,21 @@ describe("middleware admin-route protection (FR-010)", () => {
     expect(res.headers.get("location")).toBe("http://localhost/admin");
   });
 });
+
+describe("middleware student-route protection / session reopen (US1)", () => {
+  it("lets an authenticated student through to their dashboard on reopen (no re-login)", async () => {
+    currentUser = { app_metadata: { role: "student" } };
+    const res = await proxy(
+      new NextRequest("http://localhost/student/dashboard")
+    );
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("redirects an unauthenticated visitor away from the student dashboard", async () => {
+    currentUser = null;
+    const res = await proxy(
+      new NextRequest("http://localhost/student/dashboard")
+    );
+    expect(res.headers.get("location")).toBe("http://localhost/student");
+  });
+});

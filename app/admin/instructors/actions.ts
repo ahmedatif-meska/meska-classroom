@@ -9,6 +9,8 @@ import {
   extensionForType,
 } from "@/lib/instructors/validation";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
+import { invalidate } from "@/lib/cache/redis";
+import { adminListKey } from "@/lib/cache/keys";
 import strings from "@/lib/strings";
 
 export type InstructorFormState = { error?: string; saved?: boolean };
@@ -88,6 +90,7 @@ export async function createInstructor(
   if (error) return { error: strings.instructorsSaveFailed };
 
   revalidatePath(LIST_PATH);
+  await invalidate(adminListKey("instructors"));
   return { saved: true };
 }
 
@@ -150,6 +153,7 @@ export async function updateInstructor(
   if (error) return { error: strings.instructorsSaveFailed };
 
   revalidatePath(LIST_PATH);
+  await invalidate(adminListKey("instructors"));
   return { saved: true };
 }
 
@@ -188,5 +192,6 @@ export async function removeInstructor(
   await removeImage(supabase, existing?.image_path);
 
   revalidatePath(LIST_PATH);
+  await invalidate(adminListKey("instructors"));
   return { removed: true };
 }

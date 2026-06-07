@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { withPersistentMaxAge } from "@/lib/supabase/cookieOptions";
 
 /**
  * Refreshes the Supabase session and protects panel routes server-side. The
@@ -35,7 +36,8 @@ export async function proxy(request: NextRequest) {
           }
           response = NextResponse.next({ request });
           for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
+            // Persist refreshed auth cookies so reopening the app keeps the session (US1).
+            response.cookies.set(name, value, withPersistentMaxAge(options));
           }
         },
       },

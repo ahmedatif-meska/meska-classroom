@@ -7,6 +7,8 @@ import { assertAdminSession } from "@/lib/auth/adminGate";
 import { validateMemberFields } from "@/lib/members/validation";
 import { provisionMember, sendMemberMagicLink } from "@/lib/members/create";
 import { parseAndValidateMembersCsv } from "@/lib/members/csv";
+import { invalidate } from "@/lib/cache/redis";
+import { adminListKey, studentKey } from "@/lib/cache/keys";
 import strings from "@/lib/strings";
 
 export type CreateMemberState = {
@@ -88,6 +90,7 @@ export async function createMember(
 
   await logEvent(supabase, email, "success", "member_created");
   revalidatePath(MEMBERS_PATH);
+  await invalidate(adminListKey("members"));
   return { created: true, inviteFailed: result.inviteFailed };
 }
 
@@ -128,6 +131,7 @@ export async function resendMemberInvite(
 
   await logEvent(supabase, target.email, "success", "member_reinvited");
   revalidatePath(MEMBERS_PATH);
+  await invalidate(adminListKey("members"));
   return { sent: true };
 }
 
@@ -158,7 +162,7 @@ export async function removeMember(
 
   const { data: target } = await supabase
     .from("students")
-    .select("user_id, email")
+    .select("user_id, email, tenant_id")
     .eq("id", targetId)
     .maybeSingle();
   if (!target) return { error: strings.removeMemberFailed };
@@ -175,6 +179,10 @@ export async function removeMember(
 
   await logEvent(supabase, target.email ?? "", "success", "member_removed");
   revalidatePath(MEMBERS_PATH);
+  await invalidate(adminListKey("members"));
+  if (target.user_id && target.tenant_id) {
+    await invalidate(studentKey(target.tenant_id, target.user_id, "profile"));
+  }
   return { removed: true };
 }
 
@@ -256,6 +264,7 @@ export async function bulkCreateMembers(
 
   if (createdCount > 0) {
     await logEvent(supabase, "", "success", "member_created");
+    await invalidate(adminListKey("members"));
   }
   revalidatePath(MEMBERS_PATH);
   return { results, createdCount };

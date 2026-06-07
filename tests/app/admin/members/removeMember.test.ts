@@ -5,7 +5,15 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 type User = { id: string; app_metadata?: Record<string, unknown> };
 let currentUser: User | null = null;
-let target: { user_id: string | null; email: string | null } | null = null;
+let target:
+  | { user_id: string | null; email: string | null; tenant_id?: string | null }
+  | null = null;
+
+// Cache invalidation (US2.3) — assert the member-list/profile keys are cleared.
+const invalidateSpy = vi.fn(async () => {});
+vi.mock("@/lib/cache/redis", () => ({
+  invalidate: (...keys: string[]) => invalidateSpy(...keys),
+}));
 
 const maybeSingle = vi.fn(async () => ({ data: target, error: null }));
 const eq = vi.fn(() => ({ maybeSingle }));
@@ -91,5 +99,13 @@ describe("removeMember", () => {
     deleteUser.mockResolvedValue({ data: {}, error: { message: "boom" } });
     const result = await removeMember({}, form("m1"));
     expect(result).toEqual({ error: strings.removeMemberFailed });
+  });
+
+  it("invalidates the member-list cache and the removed student's profile on success (US2.3)", async () => {
+    target = { user_id: "u-1", email: "gone@x.com", tenant_id: "wave-A" };
+    const result = await removeMember({}, form("m1"));
+    expect(result).toEqual({ removed: true });
+    expect(invalidateSpy).toHaveBeenCalledWith("admin:members:list");
+    expect(invalidateSpy).toHaveBeenCalledWith("student:wave-A:u-1:profile");
   });
 });

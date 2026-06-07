@@ -1,6 +1,8 @@
 import DashboardShell from "@/components/DashboardShell";
 import MemberQrCode from "@/components/MemberQrCode";
 import { createClient } from "@/lib/supabase/server";
+import { cached } from "@/lib/cache/redis";
+import { studentKey } from "@/lib/cache/keys";
 import { memberInfoUrl, renderQrSvg } from "@/lib/members/qr";
 import { signOutStudent } from "@/app/student/actions";
 import strings from "@/lib/strings";
@@ -68,11 +70,25 @@ export default async function StudentDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: student } = await supabase
-    .from("students")
-    .select("id, full_name")
-    .eq("user_id", user?.id ?? "")
-    .maybeSingle();
+  // Cache the student's own row under a key scoped to BOTH their wave and user id, so
+  // a cache hit is, by construction, that one student's data — never served across
+  // waves or users (Principle VI). Skip caching if either id is missing.
+  const userId = user?.id ?? "";
+  const tenantId = (user?.app_metadata?.tenant_id as string | undefined) ?? "";
+
+  const loadStudent = async () => {
+    const { data } = await supabase
+      .from("students")
+      .select("id, full_name")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return data;
+  };
+
+  const student =
+    tenantId && userId
+      ? await cached(studentKey(tenantId, userId, "profile"), loadStudent)
+      : await loadStudent();
 
   const qrSvg = student ? await renderQrSvg(memberInfoUrl(student.id)) : null;
   const displayName = student?.full_name || user?.email || "";

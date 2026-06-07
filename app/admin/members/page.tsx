@@ -6,6 +6,8 @@ import DownloadTemplateButton from "@/components/DownloadTemplateButton";
 import ScanMemberButton from "@/components/ScanMemberButton";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
+import { cached } from "@/lib/cache/redis";
+import { adminListKey } from "@/lib/cache/keys";
 import strings from "@/lib/strings";
 
 type StudentRow = {
@@ -25,15 +27,24 @@ export default async function MembersPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: studentData }, { data: waveData }] = await Promise.all([
-    supabase
-      .from("students")
-      .select("id, full_name, whatsapp, email, status, created_at, tenant:tenants(name)")
-      .order("created_at", { ascending: false }),
-    supabase.from("tenants").select("id, name").order("name", { ascending: true }),
+  const [studentData, waveData] = await Promise.all([
+    cached(adminListKey("members"), async () => {
+      const { data } = await supabase
+        .from("students")
+        .select("id, full_name, whatsapp, email, status, created_at, tenant:tenants(name)")
+        .order("created_at", { ascending: false });
+      return (data ?? []) as StudentRow[];
+    }),
+    cached(adminListKey("waves"), async () => {
+      const { data } = await supabase
+        .from("tenants")
+        .select("id, name")
+        .order("name", { ascending: true });
+      return (data ?? []) as Wave[];
+    }),
   ]);
 
-  const members: MemberRow[] = ((studentData ?? []) as StudentRow[]).map((s) => {
+  const members: MemberRow[] = (studentData as StudentRow[]).map((s) => {
     const tenant = Array.isArray(s.tenant) ? s.tenant[0] : s.tenant;
     return {
       id: s.id,
