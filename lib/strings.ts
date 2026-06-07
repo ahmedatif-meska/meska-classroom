@@ -297,8 +297,13 @@ const strings = {
   scanTitle: "Scan member QR",
   scanInstruction: "Point your camera at a member's QR code.",
   scanInvalid: "That isn't a Meska member QR code. Try another.",
-  scanCameraError:
-    "Couldn't access the camera. Allow camera permission and try again.",
+  scanCameraError: "Couldn't start the camera. Try again.",
+  scanPermissionDenied:
+    "Camera access was blocked. Allow camera for this site in your browser settings, then try again.",
+  scanCameraBusy:
+    "The camera is in use by another app or tab. Close other camera tabs/apps and try again.",
+  scanNoCamera: "No camera was found on this device.",
+  scanRetryLabel: "Try again",
 
   // Student — sign in (email + password)
   studentSignInSubtitle: "Sign in with your email and password",

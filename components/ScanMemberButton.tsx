@@ -25,8 +25,26 @@ function CameraIcon() {
 
 const SCANNER_ID = "member-qr-scanner";
 
+/** Map a getUserMedia/html5-qrcode failure to a precise, actionable message. */
+function cameraErrorMessage(e: unknown): string {
+  const name = (e as { name?: string })?.name ?? "";
+  const text = `${name} ${(e as { message?: string })?.message ?? String(e ?? "")}`
+    .toLowerCase();
+  if (/notallowed|permission|denied|security/.test(text)) {
+    return strings.scanPermissionDenied;
+  }
+  if (/notreadable|in use|busy|abort|trackstart|notreadableerror/.test(text)) {
+    return strings.scanCameraBusy;
+  }
+  if (/notfound|overconstrained|no camera|devices/.test(text)) {
+    return strings.scanNoCamera;
+  }
+  return strings.scanCameraError;
+}
+
 export default function ScanMemberButton() {
   const [open, setOpen] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // Hold the active scanner so we can stop the camera on close/unmount.
   const scannerRef = useRef<{ stop: () => Promise<void>; clear: () => void } | null>(
@@ -69,8 +87,8 @@ export default function ScanMemberButton() {
             // per-frame decode misses are expected; ignore.
           }
         );
-      } catch {
-        if (!cancelled) setError(strings.scanCameraError);
+      } catch (e) {
+        if (!cancelled) setError(cameraErrorMessage(e));
       }
     })();
 
@@ -79,6 +97,7 @@ export default function ScanMemberButton() {
       const scanner = scannerRef.current;
       scannerRef.current = null;
       if (scanner) {
+        // Release the camera fully so it isn't left "in use" for the next attempt.
         scanner
           .stop()
           .catch(() => {})
@@ -91,7 +110,7 @@ export default function ScanMemberButton() {
           });
       }
     };
-  }, [open]);
+  }, [open, attempt]);
 
   return (
     <>
@@ -140,12 +159,24 @@ export default function ScanMemberButton() {
             />
 
             {error ? (
-              <p
-                role="alert"
-                className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
-              >
-                {error}
-              </p>
+              <div className="mt-4">
+                <p
+                  role="alert"
+                  className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+                >
+                  {error}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setAttempt((a) => a + 1);
+                  }}
+                  className="mt-3 w-full rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  {strings.scanRetryLabel}
+                </button>
+              </div>
             ) : null}
 
             <button

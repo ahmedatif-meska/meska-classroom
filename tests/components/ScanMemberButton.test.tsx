@@ -12,7 +12,7 @@ const clear = vi.fn();
 vi.mock("html5-qrcode", () => ({
   Html5Qrcode: class {
     start() {
-      return Promise.reject(new Error("no camera"));
+      return Promise.reject(new Error("init failed"));
     }
     stop = stop;
     clear = clear;
