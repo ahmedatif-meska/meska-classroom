@@ -6,6 +6,8 @@ import InstructorTable, {
 import InstructorFormModal from "@/components/InstructorFormModal";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
+import { cached } from "@/lib/cache/redis";
+import { adminListKey } from "@/lib/cache/keys";
 import strings from "@/lib/strings";
 
 export default async function InstructorsPage() {
@@ -14,12 +16,13 @@ export default async function InstructorsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data } = await supabase
-    .from("instructors")
-    .select("id, name, description_html, image_path, created_at")
-    .order("created_at", { ascending: false });
-
-  const instructors = (data ?? []) as InstructorRow[];
+  const instructors = await cached(adminListKey("instructors"), async () => {
+    const { data } = await supabase
+      .from("instructors")
+      .select("id, name, description_html, image_path, created_at")
+      .order("created_at", { ascending: false });
+    return (data ?? []) as InstructorRow[];
+  });
 
   return (
     <DashboardShell
