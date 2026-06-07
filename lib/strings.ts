@@ -304,6 +304,8 @@ const strings = {
     "The camera is in use by another app or tab. Close other camera tabs/apps and try again.",
   scanNoCamera: "No camera was found on this device.",
   scanRetryLabel: "Try again",
+  scanPhotoLabel: "Take a photo instead",
+  scanPhotoUnreadable: "Couldn't read a QR code in that photo. Try again.",
 
   // Student — sign in (email + password)
   studentSignInSubtitle: "Sign in with your email and password",
