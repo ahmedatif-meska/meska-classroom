@@ -1,8 +1,10 @@
 import DashboardShell from "@/components/DashboardShell";
 import MemberQrCode from "@/components/MemberQrCode";
+import StudentWaveContent from "@/components/StudentWaveContent";
 import { createClient } from "@/lib/supabase/server";
 import { cached } from "@/lib/cache/redis";
 import { studentKey } from "@/lib/cache/keys";
+import { sanitizeDescription } from "@/lib/instructors/sanitize";
 import { memberInfoUrl, renderQrSvg } from "@/lib/members/qr";
 import { signOutStudent } from "@/app/student/actions";
 import strings from "@/lib/strings";
@@ -90,6 +92,16 @@ export default async function StudentDashboard() {
       ? await cached(studentKey(tenantId, userId, "profile"), loadStudent)
       : await loadStudent();
 
+  // The caller's own wave (RLS scopes tenants to id = jwt_tenant_id()). Shown as
+  // the wave description + content; a student never sees another wave (Principle VI).
+  const { data: wave } = tenantId
+    ? await supabase
+        .from("tenants")
+        .select("name, description_html")
+        .eq("id", tenantId)
+        .maybeSingle()
+    : { data: null };
+
   const qrSvg = student ? await renderQrSvg(memberInfoUrl(student.id)) : null;
   const displayName = student?.full_name || user?.email || "";
 
@@ -103,6 +115,27 @@ export default async function StudentDashboard() {
         <p className="mt-1 text-sm text-slate-500">
           {strings.studentDashboardSubtitle}
         </p>
+
+        <section className="mt-10">
+          <h2 className="text-lg font-bold text-ink">
+            {strings.studentWaveSectionTitle}
+          </h2>
+          {wave?.description_html ? (
+            <div
+              className="instructor-rte mt-2 rounded-2xl border border-slate-200 bg-surface p-6 text-sm text-ink"
+              dangerouslySetInnerHTML={{
+                __html: sanitizeDescription(wave.description_html),
+              }}
+            />
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">
+              {strings.dashboardEmptyNote}
+            </p>
+          )}
+          {student && tenantId ? (
+            <StudentWaveContent tenantId={tenantId} studentId={student.id} />
+          ) : null}
+        </section>
 
         <section className="mt-10 rounded-2xl border border-slate-200 bg-surface p-6">
           <h2 className="text-lg font-bold text-ink">{strings.studentQrTitle}</h2>

@@ -3,6 +3,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import strings from "@/lib/strings";
 
+vi.mock("next/link", () => ({
+  default: ({ href, children }: { href: string; children: React.ReactNode }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
 const createMember = vi.fn();
 const bulkCreateMembers = vi.fn();
 vi.mock("@/app/admin/members/actions", () => ({
@@ -59,6 +65,17 @@ describe("AddMembersModal (US2.1 / US5.1)", () => {
     expect(options.map((o) => o.textContent)).toEqual(
       expect.arrayContaining(["Offline", "Online"])
     );
+  });
+
+  it("offers a Create wave link to the wave-creation page (US4.2)", async () => {
+    const user = await openChooser();
+    await user.click(
+      screen.getByRole("button", { name: new RegExp(strings.addMemberFormOption, "i") })
+    );
+    const link = screen.getByRole("link", {
+      name: new RegExp(strings.wavesAddLabel, "i"),
+    });
+    expect(link).toHaveAttribute("href", "/admin/waves/new");
   });
 
   it("closes without creating when Cancel is clicked", async () => {

@@ -7,6 +7,7 @@ import {
   type CreateMemberState,
   type BulkCreateState,
 } from "@/app/admin/members/actions";
+import Link from "next/link";
 import { parseAndValidateMembersCsv } from "@/lib/members/csv";
 import strings from "@/lib/strings";
 
@@ -36,6 +37,17 @@ function WaveSelect({ waves }: { waves: Wave[] }) {
         </option>
       ))}
     </select>
+  );
+}
+
+function CreateWaveLink() {
+  return (
+    <Link
+      href="/admin/waves/new"
+      className="self-start text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+    >
+      + {strings.wavesAddLabel}
+    </Link>
   );
 }
 
@@ -245,6 +257,7 @@ export default function AddMembersModal({ waves }: { waves: Wave[] }) {
                       {strings.memberWaveLabel} *
                     </label>
                     <WaveSelect waves={waves} />
+                    <CreateWaveLink />
                   </div>
 
                   <div className="mt-2 flex justify-end gap-3">
@@ -339,6 +352,7 @@ export default function AddMembersModal({ waves }: { waves: Wave[] }) {
                           {strings.bulkChooseWaveTitle} *
                         </label>
                         <WaveSelect waves={waves} />
+                        <CreateWaveLink />
                       </div>
                     </>
                   ) : null}

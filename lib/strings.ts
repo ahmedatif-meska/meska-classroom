@@ -305,6 +305,97 @@ const strings = {
   scanNoCamera: "No camera was found on this device.",
   scanRetryLabel: "Try again",
 
+  // Admin — Waves (list)
+  wavesNavLabel: "Waves",
+  wavesTitle: "Waves",
+  wavesSubtitle: "Create and manage your waves",
+  wavesAddLabel: "Create wave",
+  wavesEmptyNote: "No waves yet — create your first one",
+  waveTypeOnline: "Online",
+  waveTypeOffline: "Offline",
+  waveNoDescription: "No description",
+  waveOpenLabel: "Open",
+  waveWeeksLabel: "weeks",
+
+  // Admin — Waves (create/edit form)
+  waveFormAddTitle: "Create wave",
+  waveFormEditTitle: "Edit wave",
+  waveFormSubtitle: "Name the wave, describe it, and choose its type.",
+  waveNameLabel: "Wave name",
+  waveNamePlaceholder: "e.g. July 2026 Cohort",
+  waveDescriptionLabel: "Description",
+  waveTypeLabel: "Type",
+  waveTypePlaceholder: "Select a type…",
+  waveFormSubmitLabel: "Save",
+  waveFormSubmittingLabel: "Saving…",
+  waveEditLabel: "Edit",
+  wavesNameRequired: "Wave name is required.",
+  wavesTypeRequired: "Choose a type (Online or Offline).",
+  wavesSaveFailed: "The wave couldn't be saved. Please try again.",
+  wavesForbidden: "You don't have permission to do that.",
+
+  // Admin — Waves (remove)
+  removeWaveTitle: "Delete wave",
+  removeWaveConfirm: "Delete this wave? This can't be undone.",
+  removeWaveSubmitLabel: "Delete",
+  removeWaveSubmittingLabel: "Deleting…",
+  wavesDeleteBlocked:
+    "This wave still has members or content. Remove its members and weeks before deleting it.",
+  wavesRemoveFailed: "The wave couldn't be deleted. Please try again.",
+
+  // Admin — Waves (weeks)
+  weekAddLabel: "Add week",
+  weekTitleLabel: "Week title",
+  weekTitlePlaceholder: "e.g. Week 1",
+  weekDescriptionLabel: "Week description (optional)",
+  weekDefaultTitle: "Week",
+  weekSaveLabel: "Save week",
+  weekRemoveLabel: "Remove week",
+  weeksEmptyNote: "No weeks yet — add the first week",
+  wavesWeekSaveFailed: "The week couldn't be saved. Please try again.",
+
+  // Admin — Waves (materials)
+  materialAddLabel: "Add material",
+  materialTitleLabel: "Title",
+  materialFileLabel: "File",
+  materialFileHelp: "PDF or PowerPoint, up to 25 MB",
+  materialDownloadLabel: "Download",
+  materialRemoveLabel: "Remove material",
+  materialsEmptyNote: "No materials",
+  wavesMaterialInvalid: "Choose a PDF or PowerPoint file up to 25 MB.",
+  wavesMaterialUploadFailed: "The file couldn't be uploaded. Please try again.",
+  wavesMaterialSaveFailed: "The material couldn't be saved. Please try again.",
+
+  // Admin — Waves (assignments)
+  assignmentAddLabel: "Add assignment",
+  assignmentTitleLabel: "Title",
+  assignmentInstructionsLabel: "Instructions",
+  assignmentDueLabel: "Due date (optional)",
+  assignmentSaveLabel: "Save assignment",
+  assignmentRemoveLabel: "Remove assignment",
+  assignmentsEmptyNote: "No assignments",
+  assignmentSubmissionsLabel: "Submissions",
+  assignmentNoSubmissions: "No submissions yet",
+  wavesAssignmentSaveFailed:
+    "The assignment couldn't be saved. Please try again.",
+
+  // Student — wave content (dashboard)
+  studentWaveSectionTitle: "Your wave",
+  studentWaveNoContent: "No content has been added to your wave yet.",
+  studentMaterialsLabel: "Materials",
+  studentAssignmentsLabel: "Assignments",
+  studentDueLabel: "Due",
+  studentSubmitLabel: "Upload submission",
+  studentSubmitReplaceLabel: "Replace submission",
+  studentSubmittingLabel: "Uploading…",
+  studentSubmissionDoneLabel: "Submitted",
+  studentSubmissionFileHelp: "PDF, PowerPoint, or Word, up to 25 MB",
+  studentSubmissionInvalid:
+    "Choose a PDF, PowerPoint, or Word file up to 25 MB.",
+  studentSubmissionFailed:
+    "Your submission couldn't be uploaded. Please try again.",
+  studentForbidden: "You don't have permission to do that.",
+
   // Student — sign in (email + password)
   studentSignInSubtitle: "Sign in with your email and password",
   studentEmailRequired: "Email and password are required.",
