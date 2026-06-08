@@ -108,10 +108,13 @@ export default function RichTextEditor({
   name = "description_html",
   initialHtml = "",
   label = strings.instructorDescriptionLabel,
+  onChange,
 }: {
   name?: string;
   initialHtml?: string;
   label?: string;
+  /** Fires with the current HTML on every edit (for live/controlled parents). */
+  onChange?: (html: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const savedRange = useRef<Range | null>(null);
@@ -128,7 +131,11 @@ export default function RichTextEditor({
   }, []);
 
   const sync = () => {
-    if (ref.current) setHtml(ref.current.innerHTML);
+    if (ref.current) {
+      const next = ref.current.innerHTML;
+      setHtml(next);
+      onChange?.(next);
+    }
   };
 
   // Remember the selection while it still lives inside the editor, so controls
