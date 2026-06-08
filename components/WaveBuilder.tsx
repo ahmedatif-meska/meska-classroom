@@ -4,9 +4,15 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createWave,
+  updateWave,
   addWeek,
+  updateWeek,
+  removeWeek,
   addMaterial,
+  removeMaterial,
   addAssignment,
+  updateAssignment,
+  removeAssignment,
 } from "@/app/admin/waves/actions";
 import {
   validateWaveFields,
@@ -14,22 +20,35 @@ import {
   WAVE_TYPES,
 } from "@/lib/waves/validation";
 import RichTextEditor from "@/components/RichTextEditor";
+import type { WaveRow, AdminWeek } from "@/lib/waves/content";
 import strings from "@/lib/strings";
 
 // ---------------------------------------------------------------------------
-// Client-side draft. Nothing is written to the server until Save; the whole
-// structure (weeks → materials/assignments, including the chosen files) is held
-// here as the admin builds it. `saved`/`savedId` flags make Save resumable: a
-// retry after a partial failure skips what already persisted (no duplicates).
+// One component, two modes:
+//   • Create — empty client draft; a single Save writes the whole thing.
+//   • Edit   — seeded from the saved wave; the SAME layout, pre-filled and
+//     editable. Existing materials/assignments show as indicators with a Delete
+//     (deletes hit the server immediately); every other change (basics, week
+//     fields, new weeks/materials/assignments) is applied by the single Save.
+// `saved`/`savedId`/`existingId` flags make Save resumable and let it tell new
+// items (insert) from existing ones (update / leave).
 // ---------------------------------------------------------------------------
 
-type DraftMaterial = { key: string; title: string; file: File | null; saved: boolean };
+type DraftMaterial = {
+  key: string;
+  title: string;
+  file: File | null;
+  saved: boolean;
+  existingId?: string;
+  url?: string | null;
+};
 type DraftAssignment = {
   key: string;
   title: string;
   instructions: string;
   dueAt: string;
   saved: boolean;
+  existingId?: string;
 };
 type DraftWeek = {
   key: string;
@@ -38,12 +57,15 @@ type DraftWeek = {
   materials: DraftMaterial[];
   assignments: DraftAssignment[];
   savedId: string | null;
+  existingId?: string;
 };
 
 const inputClass =
   "rounded-2xl border border-slate-200 bg-page px-4 py-3 text-base text-ink placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 const smallInputClass =
   "rounded-xl border border-slate-200 bg-page px-3 py-2 text-base text-ink placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+const removeBtnClass =
+  "shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60";
 
 const TYPE_LABELS: Record<(typeof WAVE_TYPES)[number], string> = {
   online: strings.waveTypeOnline,
@@ -72,32 +94,71 @@ const newWeek = (): DraftWeek => ({
   savedId: null,
 });
 
+/** An ISO timestamp → the local value a <input type="datetime-local"> expects. */
+const toLocalInput = (iso: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+};
+
+/** Seed the draft from saved content (edit mode). */
+const seedWeeks = (ws: AdminWeek[]): DraftWeek[] =>
+  ws.map((w) => ({
+    key: w.id,
+    existingId: w.id,
+    savedId: w.id,
+    title: w.title ?? "",
+    description: w.description_html ?? "",
+    materials: w.materials.map((m) => ({
+      key: m.id,
+      existingId: m.id,
+      title: m.title,
+      file: null,
+      saved: true,
+      url: m.url,
+    })),
+    assignments: w.assignments.map((a) => ({
+      key: a.id,
+      existingId: a.id,
+      title: a.title,
+      instructions: a.instructions_html ?? "",
+      dueAt: toLocalInput(a.due_at),
+      saved: true,
+    })),
+  }));
+
 export default function WaveBuilder({
   redirectTo = "/admin/waves",
+  existing,
 }: {
   /** Where to go after a successful Save. The add-member flow returns to its
       form (re-opening the modal) so the new wave can be assigned right away. */
   redirectTo?: string;
+  /** Present ⇒ edit an existing wave (the page is pre-filled and editable). */
+  existing?: { wave: WaveRow; weeks: AdminWeek[] };
 }) {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [type, setType] = useState<"online" | "offline" | "">("");
-  const [html, setHtml] = useState("");
-  const [weeks, setWeeks] = useState<DraftWeek[]>([]);
+  const [name, setName] = useState(existing?.wave.name ?? "");
+  const [type, setType] = useState<"online" | "offline" | "">(
+    existing?.wave.type ?? ""
+  );
+  const [html, setHtml] = useState(existing?.wave.description_html ?? "");
+  const [weeks, setWeeks] = useState<DraftWeek[]>(() =>
+    existing ? seedWeeks(existing.weeks) : []
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  // Survives across Save retries so a created wave is never created twice.
-  const waveIdRef = useRef<string | null>(null);
+  // Survives Save retries so a created wave is never created twice.
+  const waveIdRef = useRef<string | null>(existing?.wave.id ?? null);
 
   // --- nested draft updaters -------------------------------------------------
   const patchWeek = (key: string, patch: Partial<DraftWeek>) =>
     setWeeks((ws) => ws.map((w) => (w.key === key ? { ...w, ...patch } : w)));
-  const patchMaterial = (
-    wk: string,
-    mk: string,
-    patch: Partial<DraftMaterial>
-  ) =>
+  const patchMaterial = (wk: string, mk: string, patch: Partial<DraftMaterial>) =>
     setWeeks((ws) =>
       ws.map((w) =>
         w.key === wk
@@ -128,6 +189,43 @@ export default function WaveBuilder({
       )
     );
 
+  // --- immediate deletes (existing items hit the server, new ones are local) -
+  const removeWeekRow = async (week: DraftWeek) => {
+    if (week.existingId) {
+      const fd = new FormData();
+      fd.set("id", week.existingId);
+      fd.set("wave_id", waveIdRef.current ?? "");
+      const r = await removeWeek({}, fd);
+      if (!r.saved) return setError(r.error ?? strings.wavesWeekSaveFailed);
+    }
+    setWeeks((ws) => ws.filter((w) => w.key !== week.key));
+  };
+  const removeMaterialRow = async (week: DraftWeek, m: DraftMaterial) => {
+    if (m.existingId) {
+      const fd = new FormData();
+      fd.set("id", m.existingId);
+      fd.set("wave_id", waveIdRef.current ?? "");
+      const r = await removeMaterial({}, fd);
+      if (!r.saved) return setError(r.error ?? strings.wavesMaterialSaveFailed);
+    }
+    patchWeek(week.key, {
+      materials: week.materials.filter((x) => x.key !== m.key),
+    });
+  };
+  const removeAssignmentRow = async (week: DraftWeek, a: DraftAssignment) => {
+    if (a.existingId) {
+      const fd = new FormData();
+      fd.set("id", a.existingId);
+      fd.set("wave_id", waveIdRef.current ?? "");
+      const r = await removeAssignment({}, fd);
+      if (!r.saved)
+        return setError(r.error ?? strings.wavesAssignmentSaveFailed);
+    }
+    patchWeek(week.key, {
+      assignments: week.assignments.filter((x) => x.key !== a.key),
+    });
+  };
+
   // --- batched, resumable Save ----------------------------------------------
   const handleSave = async () => {
     const pre = validateWaveFields(name, type);
@@ -145,21 +243,25 @@ export default function WaveBuilder({
     };
 
     try {
-      // 1) Wave (reuse the id if a previous Save already created it).
+      // 1) Wave — create when new, update when it already exists.
       let waveId = waveIdRef.current;
+      const basics = new FormData();
+      basics.set("name", name.trim());
+      basics.set("type", type);
+      basics.set("description_html", html);
       if (!waveId) {
-        const fd = new FormData();
-        fd.set("name", name.trim());
-        fd.set("type", type);
-        fd.set("description_html", html);
-        const res = await createWave({}, fd);
+        const res = await createWave({}, basics);
         if (!res.wave) return fail(res.error ?? strings.wavesSaveFailed);
         waveId = res.wave.id;
         waveIdRef.current = waveId;
+      } else {
+        basics.set("id", waveId);
+        const res = await updateWave({}, basics);
+        if (!res.saved) return fail(res.error ?? strings.wavesSaveFailed);
       }
 
       // 2) Weeks → materials → assignments, in order. Work on a copy so progress
-      //    flags can be persisted to state if a step fails (for a clean retry).
+      //    flags persist to state if a step fails (for a clean retry).
       const working = weeks.map((w) => ({
         ...w,
         materials: w.materials.map((m) => ({ ...m })),
@@ -175,12 +277,20 @@ export default function WaveBuilder({
           const wres = await addWeek({}, wfd);
           if (!wres.id) return fail(strings.wavesWeekSaveFailed, working);
           week.savedId = wres.id;
+        } else {
+          const wfd = new FormData();
+          wfd.set("id", week.savedId);
+          wfd.set("wave_id", waveId);
+          wfd.set("title", week.title);
+          wfd.set("description_html", week.description);
+          const wres = await updateWeek({}, wfd);
+          if (!wres.saved) return fail(strings.wavesWeekSaveFailed, working);
         }
 
         for (const m of week.materials) {
-          if (m.saved) continue;
+          if (m.existingId || m.saved) continue; // already stored — never re-upload
           if (!m.title.trim() && !m.file) {
-            m.saved = true; // empty row — nothing to save
+            m.saved = true;
             continue;
           }
           if (!m.title.trim() || !m.file)
@@ -202,10 +312,25 @@ export default function WaveBuilder({
         }
 
         for (const a of week.assignments) {
+          if (a.existingId) {
+            const afd = new FormData();
+            afd.set("id", a.existingId);
+            afd.set("wave_id", waveId);
+            afd.set("title", a.title.trim());
+            afd.set("instructions_html", a.instructions);
+            afd.set("due_at", a.dueAt);
+            const ares = await updateAssignment({}, afd);
+            if (!ares.saved)
+              return fail(
+                ares.error ?? strings.wavesAssignmentSaveFailed,
+                working
+              );
+            continue;
+          }
           if (a.saved) continue;
           if (!a.title.trim()) {
             if (!a.instructions.trim() && !a.dueAt) {
-              a.saved = true; // empty row — nothing to save
+              a.saved = true;
               continue;
             }
             return fail(strings.wavesAssignmentSaveFailed, working);
@@ -252,6 +377,7 @@ export default function WaveBuilder({
           <RichTextEditor
             name="description_html"
             label={strings.waveDescriptionLabel}
+            initialHtml={existing?.wave.description_html ?? ""}
             onChange={setHtml}
           />
 
@@ -311,10 +437,8 @@ export default function WaveBuilder({
                 </span>
                 <button
                   type="button"
-                  onClick={() =>
-                    setWeeks((ws) => ws.filter((w) => w.key !== week.key))
-                  }
-                  className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  onClick={() => void removeWeekRow(week)}
+                  className={removeBtnClass}
                 >
                   {strings.weekRemoveLabel}
                 </button>
@@ -342,52 +466,77 @@ export default function WaveBuilder({
                 <h4 className="text-sm font-semibold text-slate-500">
                   {strings.studentMaterialsLabel}
                 </h4>
-                {week.materials.map((m) => (
-                  <div
-                    key={m.key}
-                    className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-page p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <input
-                        type="text"
-                        value={m.title}
-                        onChange={(e) =>
-                          patchMaterial(week.key, m.key, {
-                            title: e.target.value,
-                          })
-                        }
-                        placeholder={strings.materialTitleLabel}
-                        className={`${smallInputClass} flex-1`}
-                      />
+                {week.materials.map((m) =>
+                  m.existingId ? (
+                    // Already uploaded — an indicator it exists, plus Delete.
+                    <div
+                      key={m.key}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-page p-3"
+                    >
+                      <span className="min-w-0 truncate text-sm text-ink">
+                        📄{" "}
+                        {m.url ? (
+                          <a
+                            href={m.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-brand hover:underline"
+                          >
+                            {m.title}
+                          </a>
+                        ) : (
+                          m.title
+                        )}
+                      </span>
                       <button
                         type="button"
-                        onClick={() =>
-                          patchWeek(week.key, {
-                            materials: week.materials.filter(
-                              (x) => x.key !== m.key
-                            ),
-                          })
-                        }
-                        className="shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        onClick={() => void removeMaterialRow(week, m)}
+                        className={removeBtnClass}
                       >
                         {strings.materialRemoveLabel}
                       </button>
                     </div>
-                    <input
-                      type="file"
-                      accept=".pdf,.ppt,.pptx"
-                      onChange={(e) =>
-                        patchMaterial(week.key, m.key, {
-                          file: e.target.files?.[0] ?? null,
-                        })
-                      }
-                      className="text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand"
-                    />
-                    <p className="text-xs text-slate-500">
-                      {strings.materialFileHelp}
-                    </p>
-                  </div>
-                ))}
+                  ) : (
+                    <div
+                      key={m.key}
+                      className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-page p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <input
+                          type="text"
+                          value={m.title}
+                          onChange={(e) =>
+                            patchMaterial(week.key, m.key, {
+                              title: e.target.value,
+                            })
+                          }
+                          placeholder={strings.materialTitleLabel}
+                          className={`${smallInputClass} flex-1`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void removeMaterialRow(week, m)}
+                          className={removeBtnClass}
+                        >
+                          {strings.materialRemoveLabel}
+                        </button>
+                      </div>
+                      <input
+                        type="file"
+                        accept=".pdf,.ppt,.pptx"
+                        onChange={(e) =>
+                          patchMaterial(week.key, m.key, {
+                            file: e.target.files?.[0] ?? null,
+                          })
+                        }
+                        className="text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand"
+                      />
+                      <p className="text-xs text-slate-500">
+                        {strings.materialFileHelp}
+                      </p>
+                    </div>
+                  )
+                )}
                 <button
                   type="button"
                   onClick={() =>
@@ -425,14 +574,8 @@ export default function WaveBuilder({
                       />
                       <button
                         type="button"
-                        onClick={() =>
-                          patchWeek(week.key, {
-                            assignments: week.assignments.filter(
-                              (x) => x.key !== a.key
-                            ),
-                          })
-                        }
-                        className="shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        onClick={() => void removeAssignmentRow(week, a)}
+                        className={removeBtnClass}
                       >
                         {strings.assignmentRemoveLabel}
                       </button>

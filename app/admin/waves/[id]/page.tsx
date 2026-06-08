@@ -3,8 +3,7 @@ import Link from "next/link";
 import DashboardShell from "@/components/DashboardShell";
 import AdminSidebarFooter from "@/components/AdminSidebarFooter";
 import RemoveWaveDialog from "@/components/RemoveWaveDialog";
-import WaveForm from "@/components/WaveForm";
-import WaveWeeks from "@/components/WaveWeeks";
+import WaveBuilder from "@/components/WaveBuilder";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
 import { fetchWaveContent, type WaveRow } from "@/lib/waves/content";
@@ -54,13 +53,10 @@ export default async function WaveDetailPage({
         </h1>
         <p className="mt-1 text-sm text-slate-500">{strings.waveFormSubtitle}</p>
 
-        {/* The whole wave edits on one page: the basics edit inline here, and the
-            weeks/materials/assignments are managed in the section below. */}
-        <div className="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-surface p-6 sm:p-8">
-          <WaveForm wave={typed} />
+        {/* Same builder as creation, seeded with the saved data and editable. */}
+        <div className="mt-8">
+          <WaveBuilder existing={{ wave: typed, weeks }} />
         </div>
-
-        <WaveWeeks waveId={typed.id} weeks={weeks} />
       </div>
     </DashboardShell>
   );
