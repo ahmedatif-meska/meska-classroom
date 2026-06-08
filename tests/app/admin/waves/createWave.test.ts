@@ -6,8 +6,22 @@ vi.mock("@/lib/cache/redis", () => ({ invalidate: vi.fn() }));
 
 type User = { id: string; app_metadata?: Record<string, unknown> };
 let currentUser: User | null = null;
+let insertError: unknown = null;
+const insertedRow = {
+  id: "w1",
+  name: "July Cohort",
+  description_html: null,
+  type: "offline",
+  created_at: "2026-06-08T00:00:00Z",
+};
 
-const insert = vi.fn(async () => ({ error: null }));
+// insert(...).select(...).single() → { data, error }
+const single = vi.fn(async () => ({
+  data: insertError ? null : insertedRow,
+  error: insertError,
+}));
+const select = vi.fn(() => ({ single }));
+const insert = vi.fn(() => ({ select }));
 const getUser = vi.fn(async () => ({ data: { user: currentUser } }));
 const from = vi.fn(() => ({ insert }));
 
@@ -28,7 +42,7 @@ function form(opts: { name?: string | null; type?: string | null; description?: 
 beforeEach(() => {
   vi.clearAllMocks();
   currentUser = { id: "caller", app_metadata: { role: "admin" } };
-  insert.mockResolvedValue({ error: null });
+  insertError = null;
 });
 
 describe("createWave (US1.1)", () => {
@@ -64,7 +78,8 @@ describe("createWave (US1.1)", () => {
         description: "<p>Hi</p><script>alert(1)</script>",
       })
     );
-    expect(result).toEqual({ saved: true });
+    expect(result.saved).toBe(true);
+    expect(result.wave).toEqual(insertedRow);
     const row = insert.mock.calls[0][0] as {
       name: string;
       type: string;
@@ -82,7 +97,7 @@ describe("createWave (US1.1)", () => {
   });
 
   it("returns a save error when the insert fails", async () => {
-    insert.mockResolvedValue({ error: { message: "db down" } });
+    insertError = { message: "db down" };
     const result = await createWave({}, form({ name: "X", type: "online" }));
     expect(result).toEqual({ error: strings.wavesSaveFailed });
   });

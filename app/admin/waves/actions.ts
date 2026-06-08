@@ -15,10 +15,11 @@ import {
   materialPath,
 } from "@/lib/waves/files";
 import { invalidate } from "@/lib/cache/redis";
-import { adminListKey } from "@/lib/cache/keys";
+import { adminListKey, studentKey } from "@/lib/cache/keys";
+import { fetchWaveContent, type AdminWeek, type WaveRow } from "@/lib/waves/content";
 import strings from "@/lib/strings";
 
-export type WaveFormState = { error?: string; saved?: boolean };
+export type WaveFormState = { error?: string; saved?: boolean; wave?: WaveRow };
 export type RemoveWaveState = { error?: string; removed?: boolean };
 export type WeekState = { error?: string; saved?: boolean };
 export type MaterialState = { error?: string; saved?: boolean };
@@ -74,16 +75,30 @@ export async function createWave(
   const valid = validateWaveFields(formData.get("name"), formData.get("type"));
   if (!valid.ok) return { error: valid.error };
 
-  const { error } = await supabase.from("tenants").insert({
-    name: valid.name,
-    type: valid.type,
-    description_html: sanitizeDescription(formData.get("description_html")) || null,
-  });
-  if (error) return { error: strings.wavesSaveFailed };
+  const { data, error } = await supabase
+    .from("tenants")
+    .insert({
+      name: valid.name,
+      type: valid.type,
+      description_html:
+        sanitizeDescription(formData.get("description_html")) || null,
+    })
+    .select("id, name, description_html, type, created_at")
+    .single();
+  if (error || !data) return { error: strings.wavesSaveFailed };
 
   revalidatePath(LIST_PATH);
   await invalidate(adminListKey("waves"));
-  return { saved: true };
+  // Return the new row so the create page can reveal its content builder in place
+  // (no navigation), instead of redirecting to a separate management page.
+  return { saved: true, wave: data as WaveRow };
+}
+
+/** Load a wave's weeks/materials/assignments for the in-page builder (admin-only). */
+export async function getWaveContent(waveId: string): Promise<AdminWeek[]> {
+  const gate = await adminClient();
+  if (!gate) return [];
+  return fetchWaveContent(gate.supabase, waveId);
 }
 
 export async function updateWave(
@@ -117,7 +132,12 @@ export async function updateWave(
   return { saved: true };
 }
 
-/** Block-while-non-empty (R11): refuse if the wave has members or weeks. */
+/**
+ * Delete a wave permanently. Its content (weeks/materials/assignments/submissions)
+ * cascades away; its assigned members are KEPT but unassigned — their tenant_id is
+ * set to null (migration 0009 switched the FK to ON DELETE SET NULL). So removing a
+ * wave never deletes a member's account, it just clears their wave column.
+ */
 export async function deleteWave(
   _prev: RemoveWaveState,
   formData: FormData
@@ -129,25 +149,36 @@ export async function deleteWave(
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return { error: strings.wavesRemoveFailed };
 
-  const [{ count: members }, { count: weeks }] = await Promise.all([
-    supabase
-      .from("students")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", id),
-    supabase
-      .from("wave_weeks")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", id),
-  ]);
-  if ((members ?? 0) > 0 || (weeks ?? 0) > 0) {
-    return { error: strings.wavesDeleteBlocked };
-  }
+  // Gather before the delete: members to unassign (to drop their cached profile)
+  // and storage objects to clean up (DB rows cascade, but files do not).
+  const [{ data: members }, { data: materials }, { data: subs }] =
+    await Promise.all([
+      supabase.from("students").select("user_id").eq("tenant_id", id),
+      supabase.from("wave_materials").select("file_path").eq("tenant_id", id),
+      supabase.from("wave_submissions").select("file_path").eq("tenant_id", id),
+    ]);
 
   const { error } = await supabase.from("tenants").delete().eq("id", id);
   if (error) return { error: strings.wavesRemoveFailed };
 
+  await removeObjects(
+    supabase,
+    MATERIALS_BUCKET,
+    (materials ?? []).map((m) => m.file_path)
+  );
+  await removeObjects(
+    supabase,
+    SUBMISSIONS_BUCKET,
+    (subs ?? []).map((s) => s.file_path)
+  );
+
   revalidatePath(LIST_PATH);
-  await invalidate(adminListKey("waves"));
+  revalidatePath("/admin/members");
+  await invalidate(adminListKey("waves"), adminListKey("members"));
+  // Each now-unassigned member's profile was cached under the old wave id — drop it.
+  for (const m of members ?? []) {
+    if (m.user_id) await invalidate(studentKey(id, m.user_id, "profile"));
+  }
   return { removed: true };
 }
 

@@ -7,7 +7,7 @@ import strings from "@/lib/strings";
 
 const initialState: RemoveWaveState = {};
 
-/** Delete a wave (blocked while it has members or weeks — FR-018). */
+/** Delete a wave: content cascades away and members are unassigned (kept). */
 export default function RemoveWaveDialog({ waveId }: { waveId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);

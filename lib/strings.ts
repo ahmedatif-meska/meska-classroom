@@ -328,6 +328,8 @@ const strings = {
   waveTypePlaceholder: "Select a type…",
   waveFormSubmitLabel: "Save",
   waveFormSubmittingLabel: "Saving…",
+  waveCreatedNote:
+    "Wave created. Add its weeks, materials and assignments below — each saves as you add it.",
   waveEditLabel: "Edit",
   wavesNameRequired: "Wave name is required.",
   wavesTypeRequired: "Choose a type (Online or Offline).",
@@ -336,11 +338,10 @@ const strings = {
 
   // Admin — Waves (remove)
   removeWaveTitle: "Delete wave",
-  removeWaveConfirm: "Delete this wave? This can't be undone.",
+  removeWaveConfirm:
+    "Delete this wave permanently? Its weeks, materials and assignments will be deleted, and any assigned members will be unassigned (their accounts are kept). This can't be undone.",
   removeWaveSubmitLabel: "Delete",
   removeWaveSubmittingLabel: "Deleting…",
-  wavesDeleteBlocked:
-    "This wave still has members or content. Remove its members and weeks before deleting it.",
   wavesRemoveFailed: "The wave couldn't be deleted. Please try again.",
 
   // Admin — Waves (weeks)

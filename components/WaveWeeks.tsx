@@ -10,28 +10,15 @@ import {
   addAssignment,
   removeAssignment,
 } from "@/app/admin/waves/actions";
+import type { AdminWeek } from "@/lib/waves/content";
 import strings from "@/lib/strings";
 
-export type AdminMaterial = { id: string; title: string; url: string | null };
-export type AdminSubmission = {
-  studentName: string;
-  url: string | null;
-};
-export type AdminAssignment = {
-  id: string;
-  title: string;
-  instructions_html: string | null;
-  due_at: string | null;
-  submissions: AdminSubmission[];
-};
-export type AdminWeek = {
-  id: string;
-  title: string | null;
-  position: number;
-  description_html: string | null;
-  materials: AdminMaterial[];
-  assignments: AdminAssignment[];
-};
+export type {
+  AdminWeek,
+  AdminAssignment,
+  AdminMaterial,
+  AdminSubmission,
+} from "@/lib/waves/content";
 
 type ActionFn = (
   prev: { error?: string; saved?: boolean },
@@ -53,6 +40,7 @@ function MutationForm({
   children,
   className,
   compact,
+  onDone,
 }: {
   action: ActionFn;
   submitLabel: string;
@@ -60,15 +48,15 @@ function MutationForm({
   children?: ReactNode;
   className?: string;
   compact?: boolean;
+  onDone: () => void;
 }) {
-  const router = useRouter();
   const ref = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useActionState(
     async (prev: { error?: string; saved?: boolean }, fd: FormData) => {
       const result = await action(prev, fd);
       if (result.saved) {
         ref.current?.reset();
-        router.refresh();
+        onDone();
       }
       return result;
     },
@@ -119,10 +107,16 @@ function Html({ html }: { html: string }) {
 export default function WaveWeeks({
   waveId,
   weeks,
+  onMutated,
 }: {
   waveId: string;
   weeks: AdminWeek[];
+  /** Called after each successful mutation. Defaults to a full route refresh
+      (server-rendered detail page); the in-page builder passes a re-fetch instead. */
+  onMutated?: () => void;
 }) {
+  const router = useRouter();
+  const refresh = onMutated ?? (() => router.refresh());
   return (
     <div className="mt-8">
       <h2 className="text-lg font-bold text-ink">{strings.wavesNavLabel}</h2>
@@ -130,6 +124,7 @@ export default function WaveWeeks({
       {/* Add week */}
       <MutationForm
         action={addWeek}
+        onDone={refresh}
         submitLabel={strings.weekAddLabel}
         pendingLabel={strings.weekAddLabel}
         className="mt-3 flex flex-col gap-2 rounded-2xl border border-slate-200 bg-surface p-4"
@@ -164,6 +159,7 @@ export default function WaveWeeks({
                 </h3>
                 <MutationForm
                   action={removeWeek}
+                  onDone={refresh}
                   submitLabel={strings.weekRemoveLabel}
                   compact
                 >
@@ -203,6 +199,7 @@ export default function WaveWeeks({
                         )}
                         <MutationForm
                           action={removeMaterial}
+                          onDone={refresh}
                           submitLabel={strings.materialRemoveLabel}
                           compact
                         >
@@ -215,6 +212,7 @@ export default function WaveWeeks({
                 )}
                 <MutationForm
                   action={addMaterial}
+                  onDone={refresh}
                   submitLabel={strings.materialAddLabel}
                   className="mt-3 flex flex-col gap-2"
                 >
@@ -258,6 +256,7 @@ export default function WaveWeeks({
                           <p className="font-semibold text-ink">{a.title}</p>
                           <MutationForm
                             action={removeAssignment}
+                            onDone={refresh}
                             submitLabel={strings.assignmentRemoveLabel}
                             compact
                           >
@@ -310,6 +309,7 @@ export default function WaveWeeks({
                 )}
                 <MutationForm
                   action={addAssignment}
+                  onDone={refresh}
                   submitLabel={strings.assignmentAddLabel}
                   className="mt-3 flex flex-col gap-2"
                 >

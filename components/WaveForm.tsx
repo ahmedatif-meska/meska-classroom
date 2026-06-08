@@ -9,15 +9,10 @@ import {
 } from "@/app/admin/waves/actions";
 import { validateWaveFields, WAVE_TYPES } from "@/lib/waves/validation";
 import RichTextEditor from "@/components/RichTextEditor";
+import type { WaveRow } from "@/lib/waves/content";
 import strings from "@/lib/strings";
 
-export type WaveRow = {
-  id: string;
-  name: string;
-  description_html: string | null;
-  type: "online" | "offline";
-  created_at: string;
-};
+export type { WaveRow };
 
 const initialState: WaveFormState = {};
 
@@ -39,11 +34,14 @@ export default function WaveForm({
   wave,
   onCancel,
   onSaved,
+  onCreated,
   redirectTo,
 }: {
   wave?: WaveRow;
   onCancel?: () => void;
   onSaved?: () => void;
+  /** Called with the new wave after a successful create (in-page builder reveal). */
+  onCreated?: (wave: WaveRow) => void;
   /** Serializable alternative to onSaved, usable from a Server Component parent. */
   redirectTo?: string;
 }) {
@@ -72,6 +70,11 @@ export default function WaveForm({
   // within the in-flight transition can crash the re-render; an effect is safe.
   useEffect(() => {
     if (!state.saved) return;
+    // A fresh create hands the new wave to the in-page builder (no navigation).
+    if (state.wave && onCreated) {
+      onCreated(state.wave);
+      return;
+    }
     onSaved?.();
     if (redirectTo) router.push(redirectTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
