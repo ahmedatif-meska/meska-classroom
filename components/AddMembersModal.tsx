@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   createMember,
   bulkCreateMembers,
@@ -40,10 +41,12 @@ function WaveSelect({ waves }: { waves: Wave[] }) {
   );
 }
 
-function CreateWaveLink() {
+function CreateWaveLink({ step }: { step: "form" | "bulk" }) {
+  // Carry the originating step so the wave-creation page returns the admin to the
+  // add-member flow (re-opening this modal) instead of the Waves list.
   return (
     <Link
-      href="/admin/waves/new"
+      href={`/admin/waves/new?from=members&step=${step}`}
       className="self-start text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
     >
       + {strings.wavesAddLabel}
@@ -52,8 +55,22 @@ function CreateWaveLink() {
 }
 
 export default function AddMembersModal({ waves }: { waves: Wave[] }) {
-  const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"chooser" | "form" | "bulk">("chooser");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Returning from "+ Create wave" (?add=form|bulk) re-opens this modal on the step
+  // the admin left, so creating a wave mid-add doesn't restart the flow (bug fix).
+  // Seed the open/step from the URL during render, then strip the param in an effect.
+  const addParam = searchParams.get("add");
+  const autoStep = addParam === "form" || addParam === "bulk" ? addParam : null;
+  const [open, setOpen] = useState(autoStep !== null);
+  const [mode, setMode] = useState<"chooser" | "form" | "bulk">(
+    autoStep ?? "chooser"
+  );
+
+  useEffect(() => {
+    if (autoStep) router.replace("/admin/members");
+  }, [autoStep, router]);
 
   // Single-add form.
   const [formState, formAction, formPending] = useActionState(
@@ -257,7 +274,7 @@ export default function AddMembersModal({ waves }: { waves: Wave[] }) {
                       {strings.memberWaveLabel} *
                     </label>
                     <WaveSelect waves={waves} />
-                    <CreateWaveLink />
+                    <CreateWaveLink step="form" />
                   </div>
 
                   <div className="mt-2 flex justify-end gap-3">
@@ -352,7 +369,7 @@ export default function AddMembersModal({ waves }: { waves: Wave[] }) {
                           {strings.bulkChooseWaveTitle} *
                         </label>
                         <WaveSelect waves={waves} />
-                        <CreateWaveLink />
+                        <CreateWaveLink step="bulk" />
                       </div>
                     </>
                   ) : null}

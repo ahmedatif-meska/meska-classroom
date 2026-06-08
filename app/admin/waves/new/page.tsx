@@ -6,11 +6,25 @@ import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
 import strings from "@/lib/strings";
 
-export default async function NewWavePage() {
+export default async function NewWavePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; step?: string }>;
+}) {
+  const { from, step } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // When reached from the add-member flow, return there (re-opening the modal on
+  // the step the admin left) on success; otherwise return to the Waves list.
+  const fromMembers = from === "members";
+  const redirectTo = fromMembers
+    ? `/admin/members?add=${step === "bulk" ? "bulk" : "form"}`
+    : "/admin/waves";
+  const backHref = fromMembers ? "/admin/members" : "/admin/waves";
+  const backLabel = fromMembers ? strings.membersTitle : strings.wavesTitle;
 
   return (
     <DashboardShell
@@ -21,10 +35,10 @@ export default async function NewWavePage() {
     >
       <div className="p-8">
         <Link
-          href="/admin/waves"
+          href={backHref}
           className="text-sm font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
-          ← {strings.wavesTitle}
+          ← {backLabel}
         </Link>
         <h1 className="mt-4 text-2xl font-bold text-ink">
           {strings.waveFormAddTitle}
@@ -35,8 +49,8 @@ export default async function NewWavePage() {
 
         <div className="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-surface p-6 sm:p-8">
           {/* redirectTo (a string) is serializable, so this RSC can configure the
-              client form to return to the list on success. */}
-          <WaveForm redirectTo="/admin/waves" />
+              client form to return to the right place on success. */}
+          <WaveForm redirectTo={redirectTo} />
         </div>
       </div>
     </DashboardShell>

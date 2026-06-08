@@ -36,7 +36,6 @@ export default function StudentLoginForm() {
           type="email"
           required
           autoComplete="email"
-          placeholder={strings.emailPlaceholder}
           className={inputClass}
         />
       </div>

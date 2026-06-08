@@ -102,7 +102,15 @@ export default async function StudentDashboard() {
         .maybeSingle()
     : { data: null };
 
-  const qrSvg = student ? await renderQrSvg(memberInfoUrl(student.id)) : null;
+  // A QR render failure must not crash the whole dashboard — fall back to null.
+  let qrSvg: string | null = null;
+  if (student) {
+    try {
+      qrSvg = await renderQrSvg(memberInfoUrl(student.id));
+    } catch {
+      qrSvg = null;
+    }
+  }
   const displayName = student?.full_name || user?.email || "";
 
   return (

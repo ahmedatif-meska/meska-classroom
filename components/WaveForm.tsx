@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createWave,
@@ -60,17 +60,22 @@ export default function WaveForm({
         return prev;
       }
       setClientError(null);
-      const result = isEdit
+      return isEdit
         ? await updateWave(prev, formData)
         : await createWave(prev, formData);
-      if (result.saved) {
-        onSaved?.();
-        if (redirectTo) router.push(redirectTo);
-      }
-      return result;
     },
     initialState
   );
+
+  // Run post-save side effects AFTER the action commits, never inside the action.
+  // Closing the modal (which unmounts this form) or refreshing the route from
+  // within the in-flight transition can crash the re-render; an effect is safe.
+  useEffect(() => {
+    if (!state.saved) return;
+    onSaved?.();
+    if (redirectTo) router.push(redirectTo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.saved]);
 
   const error = clientError ?? state.error;
 

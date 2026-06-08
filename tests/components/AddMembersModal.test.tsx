@@ -9,6 +9,11 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 const createMember = vi.fn();
 const bulkCreateMembers = vi.fn();
 vi.mock("@/app/admin/members/actions", () => ({
@@ -75,7 +80,7 @@ describe("AddMembersModal (US2.1 / US5.1)", () => {
     const link = screen.getByRole("link", {
       name: new RegExp(strings.wavesAddLabel, "i"),
     });
-    expect(link).toHaveAttribute("href", "/admin/waves/new");
+    expect(link).toHaveAttribute("href", "/admin/waves/new?from=members&step=form");
   });
 
   it("closes without creating when Cancel is clicked", async () => {
