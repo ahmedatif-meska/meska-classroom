@@ -43,7 +43,7 @@ vi.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
-import { updateWave, deleteWave, getWaveContent } from "@/app/admin/waves/actions";
+import { updateWave, deleteWave } from "@/app/admin/waves/actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -111,12 +111,5 @@ describe("deleteWave (US4.1 — unassigns members, keeps accounts)", () => {
     expect(await deleteWave({}, fd({ id: "w1" }))).toEqual({
       error: strings.wavesRemoveFailed,
     });
-  });
-});
-
-describe("getWaveContent (admin-gated)", () => {
-  it("returns [] for a non-admin (never reaches the data load)", async () => {
-    currentUser = null;
-    expect(await getWaveContent("w1")).toEqual([]);
   });
 });

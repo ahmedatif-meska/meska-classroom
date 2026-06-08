@@ -2,29 +2,34 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import strings from "@/lib/strings";
 
-const { createWave, updateWave } = vi.hoisted(() => ({
-  createWave: vi.fn(async () => ({
-    saved: true,
-    wave: {
-      id: "w1",
-      name: "July",
-      description_html: null,
-      type: "online",
-      created_at: "",
-    },
-  })),
-  updateWave: vi.fn(async () => ({ saved: true })),
-}));
-vi.mock("@/app/admin/waves/actions", () => ({ createWave, updateWave }));
+const { createWave, addWeek, addMaterial, addAssignment, push } = vi.hoisted(
+  () => ({
+    createWave: vi.fn(async () => ({
+      saved: true,
+      wave: {
+        id: "w1",
+        name: "July",
+        description_html: null,
+        type: "online",
+        created_at: "",
+      },
+    })),
+    addWeek: vi.fn(async () => ({ saved: true, id: "wk1" })),
+    addMaterial: vi.fn(async () => ({ saved: true })),
+    addAssignment: vi.fn(async () => ({ saved: true })),
+    push: vi.fn(),
+  })
+);
 
-// Stub heavy/child components so the builder renders in isolation.
+vi.mock("@/app/admin/waves/actions", () => ({
+  createWave,
+  addWeek,
+  addMaterial,
+  addAssignment,
+}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 vi.mock("@/components/RichTextEditor", () => ({
   default: () => <div data-testid="rte" />,
-}));
-vi.mock("@/components/WaveContentManager", () => ({
-  default: ({ waveId }: { waveId: string }) => (
-    <div data-testid="content-manager">{waveId}</div>
-  ),
 }));
 
 import WaveBuilder from "@/components/WaveBuilder";
@@ -33,28 +38,41 @@ beforeEach(() => vi.clearAllMocks());
 
 const saveButton = () =>
   screen.getByRole("button", { name: strings.waveFormSubmitLabel });
+const setBasics = () => {
+  fireEvent.change(screen.getByLabelText(/wave name/i), {
+    target: { value: "July" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: strings.waveTypeOnline }));
+};
 
-describe("WaveBuilder (one-page, Save at end)", () => {
-  it("shows a Save button and the weeks section locked initially", () => {
+describe("WaveBuilder (one-page draft, single Save)", () => {
+  it("renders the basics, an Add-week button and a Save button", () => {
     render(<WaveBuilder />);
+    expect(screen.getByLabelText(/wave name/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` })
+    ).toBeInTheDocument();
     expect(saveButton()).toBeInTheDocument();
-    expect(screen.getByText(strings.waveBuilderWeeksLocked)).toBeInTheDocument();
-    expect(screen.queryByTestId("content-manager")).not.toBeInTheDocument();
+    expect(screen.getByText(strings.weeksEmptyNote)).toBeInTheDocument();
   });
 
-  it("creates the wave on Save and unlocks the weeks builder", async () => {
+  it("adds a week with material and assignment controls when Add week is clicked", () => {
     render(<WaveBuilder />);
-    fireEvent.change(screen.getByLabelText(/wave name/i), {
-      target: { value: "July" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: strings.waveTypeOnline }));
-    fireEvent.click(saveButton());
-
-    await waitFor(() => expect(createWave).toHaveBeenCalledTimes(1));
-    expect(await screen.findByTestId("content-manager")).toHaveTextContent("w1");
+    fireEvent.click(
+      screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` })
+    );
+    expect(
+      screen.getByPlaceholderText(strings.weekTitlePlaceholder)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: `+ ${strings.materialAddLabel}` })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: `+ ${strings.assignmentAddLabel}` })
+    ).toBeInTheDocument();
   });
 
-  it("blocks Save with a missing type and does not call the action", async () => {
+  it("blocks Save with a missing type and writes nothing", async () => {
     render(<WaveBuilder />);
     fireEvent.change(screen.getByLabelText(/wave name/i), {
       target: { value: "July" },
@@ -64,17 +82,57 @@ describe("WaveBuilder (one-page, Save at end)", () => {
     expect(createWave).not.toHaveBeenCalled();
   });
 
-  it("updates (not re-creates) on a second Save after creation", async () => {
+  it("saves an empty wave (no weeks) and navigates to the list", async () => {
     render(<WaveBuilder />);
-    fireEvent.change(screen.getByLabelText(/wave name/i), {
-      target: { value: "July" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: strings.waveTypeOnline }));
+    setBasics();
     fireEvent.click(saveButton());
     await waitFor(() => expect(createWave).toHaveBeenCalledTimes(1));
+    expect(addWeek).not.toHaveBeenCalled();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/waves"));
+  });
+
+  it("persists the whole draft in order: wave → week → material + assignment", async () => {
+    render(<WaveBuilder />);
+    setBasics();
+    fireEvent.click(
+      screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` })
+    );
+
+    // A material with a title + file.
+    fireEvent.click(
+      screen.getByRole("button", { name: `+ ${strings.materialAddLabel}` })
+    );
+    fireEvent.change(screen.getByPlaceholderText(strings.materialTitleLabel), {
+      target: { value: "Slides" },
+    });
+    const file = new File(["x"], "slides.pdf", { type: "application/pdf" });
+    const fileInput = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    // An assignment with a title. (Material + assignment share the "Title"
+    // placeholder, so target the second title input — the assignment's.)
+    fireEvent.click(
+      screen.getByRole("button", { name: `+ ${strings.assignmentAddLabel}` })
+    );
+    const titleInputs = screen.getAllByPlaceholderText(
+      strings.assignmentTitleLabel
+    );
+    fireEvent.change(titleInputs[titleInputs.length - 1], {
+      target: { value: "Homework 1" },
+    });
 
     fireEvent.click(saveButton());
-    await waitFor(() => expect(updateWave).toHaveBeenCalledTimes(1));
-    expect(createWave).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(createWave).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(addWeek).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(addMaterial).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(addAssignment).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/waves"));
+
+    // The week id from addWeek is forwarded to the material + assignment writes.
+    expect(addMaterial.mock.calls[0][1].get("week_id")).toBe("wk1");
+    expect(addAssignment.mock.calls[0][1].get("week_id")).toBe("wk1");
   });
 });

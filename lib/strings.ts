@@ -328,10 +328,6 @@ const strings = {
   waveTypePlaceholder: "Select a type…",
   waveFormSubmitLabel: "Save",
   waveFormSubmittingLabel: "Saving…",
-  // Builder (one-page create): weeks unlock after the wave is saved.
-  waveBuilderWeeksLocked:
-    "Save the wave below first — then weeks, materials and assignments unlock here.",
-  waveSavedNote: "Saved",
   waveEditLabel: "Edit",
   wavesNameRequired: "Wave name is required.",
   wavesTypeRequired: "Choose a type (Online or Offline).",
@@ -347,6 +343,7 @@ const strings = {
   wavesRemoveFailed: "The wave couldn't be deleted. Please try again.",
 
   // Admin — Waves (weeks)
+  weeksSectionTitle: "Weeks",
   weekAddLabel: "Add week",
   weekTitleLabel: "Week title",
   weekTitlePlaceholder: "e.g. Week 1",

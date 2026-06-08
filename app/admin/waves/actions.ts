@@ -16,12 +16,12 @@ import {
 } from "@/lib/waves/files";
 import { invalidate } from "@/lib/cache/redis";
 import { adminListKey, studentKey } from "@/lib/cache/keys";
-import { fetchWaveContent, type AdminWeek, type WaveRow } from "@/lib/waves/content";
+import { type WaveRow } from "@/lib/waves/content";
 import strings from "@/lib/strings";
 
 export type WaveFormState = { error?: string; saved?: boolean; wave?: WaveRow };
 export type RemoveWaveState = { error?: string; removed?: boolean };
-export type WeekState = { error?: string; saved?: boolean };
+export type WeekState = { error?: string; saved?: boolean; id?: string };
 export type MaterialState = { error?: string; saved?: boolean };
 export type AssignmentState = { error?: string; saved?: boolean };
 
@@ -92,13 +92,6 @@ export async function createWave(
   // Return the new row so the create page can reveal its content builder in place
   // (no navigation), instead of redirecting to a separate management page.
   return { saved: true, wave: data as WaveRow };
-}
-
-/** Load a wave's weeks/materials/assignments for the in-page builder (admin-only). */
-export async function getWaveContent(waveId: string): Promise<AdminWeek[]> {
-  const gate = await adminClient();
-  if (!gate) return [];
-  return fetchWaveContent(gate.supabase, waveId);
 }
 
 export async function updateWave(
@@ -209,17 +202,23 @@ export async function addWeek(
   const position = (last?.position ?? 0) + 1;
 
   const title = formData.get("title");
-  const { error } = await supabase.from("wave_weeks").insert({
-    tenant_id: waveId,
-    position,
-    title: typeof title === "string" && title.trim() ? title.trim() : null,
-    description_html:
-      sanitizeDescription(formData.get("description_html")) || null,
-  });
-  if (error) return { error: strings.wavesWeekSaveFailed };
+  const { data, error } = await supabase
+    .from("wave_weeks")
+    .insert({
+      tenant_id: waveId,
+      position,
+      title: typeof title === "string" && title.trim() ? title.trim() : null,
+      description_html:
+        sanitizeDescription(formData.get("description_html")) || null,
+    })
+    .select("id")
+    .single();
+  if (error || !data) return { error: strings.wavesWeekSaveFailed };
 
   revalidatePath(wavePath(waveId));
-  return { saved: true };
+  // Return the new week's id so the one-page builder can attach this week's
+  // materials and assignments to it during a batched Save.
+  return { saved: true, id: data.id as string };
 }
 
 export async function updateWeek(
