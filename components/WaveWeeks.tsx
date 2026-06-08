@@ -119,7 +119,7 @@ export default function WaveWeeks({
   const refresh = onMutated ?? (() => router.refresh());
   return (
     <div className="mt-8">
-      <h2 className="text-lg font-bold text-ink">{strings.wavesNavLabel}</h2>
+      <h2 className="text-lg font-bold text-ink">{strings.weeksSectionTitle}</h2>
 
       {/* Add week */}
       <MutationForm
