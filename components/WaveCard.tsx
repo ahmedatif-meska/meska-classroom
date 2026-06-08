@@ -1,0 +1,46 @@
+import Link from "next/link";
+import type { WaveRow } from "@/components/WaveForm";
+import strings from "@/lib/strings";
+
+/**
+ * One wave rendered as a card for the Waves list (Server Component). Shows the
+ * name, an Online/Offline type badge, and a plain-text snippet of the description.
+ * The whole card links to the wave's management page.
+ */
+export default function WaveCard({
+  wave,
+  weekCount,
+}: {
+  wave: WaveRow;
+  weekCount: number;
+}) {
+  // Plain-text snippet from the sanitized HTML (cards never render raw markup).
+  const snippet = wave.description_html
+    ? wave.description_html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
+    : "";
+
+  const typeLabel =
+    wave.type === "online" ? strings.waveTypeOnline : strings.waveTypeOffline;
+
+  return (
+    <Link
+      href={`/admin/waves/${wave.id}`}
+      className="group flex flex-col rounded-2xl border border-slate-200 bg-surface p-6 transition hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="min-w-0 truncate text-lg font-bold text-ink">
+          {wave.name}
+        </h2>
+        <span className="shrink-0 rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
+          {typeLabel}
+        </span>
+      </div>
+      <p className="mt-2 line-clamp-2 text-sm text-slate-500">
+        {snippet || strings.waveNoDescription}
+      </p>
+      <span className="mt-4 text-xs font-medium text-slate-400">
+        {weekCount} {strings.waveWeeksLabel}
+      </span>
+    </Link>
+  );
+}

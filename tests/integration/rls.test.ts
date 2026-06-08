@@ -34,7 +34,7 @@ describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
     for (const name of ["rls-test-A", "rls-test-B"]) {
       const { data: t, error } = await admin
         .from("tenants")
-        .insert({ name })
+        .insert({ name, type: "online" })
         .select("id")
         .single();
       expect(error).toBeNull();
@@ -51,6 +51,51 @@ describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
       .select("tenant_id")
       .in("tenant_id", tenantIds);
     expect(new Set((data ?? []).map((r) => r.tenant_id)).size).toBe(2);
+  });
+
+  it("a tenantless caller cannot read wave content; the admin can (feature 008, Principle VI)", async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(url!, serviceKey!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // Seed a wave with a week, a material, and an assignment.
+    const { data: t } = await admin
+      .from("tenants")
+      .insert({ name: "rls-test-waves", type: "offline" })
+      .select("id")
+      .single();
+    tenantIds.push(t!.id);
+    const { data: week } = await admin
+      .from("wave_weeks")
+      .insert({ tenant_id: t!.id, position: 1, title: "W1" })
+      .select("id")
+      .single();
+    await admin.from("wave_materials").insert({
+      tenant_id: t!.id,
+      week_id: week!.id,
+      title: "Slides",
+      file_path: `${t!.id}/${week!.id}/x.pdf`,
+    });
+    await admin.from("wave_assignments").insert({
+      tenant_id: t!.id,
+      week_id: week!.id,
+      title: "Task 1",
+    });
+
+    // Anon (no tenant claim) is denied every wave-scoped table → zero rows.
+    const anon = createClient(url!, anonKey!);
+    for (const table of ["wave_weeks", "wave_materials", "wave_assignments"]) {
+      const { data } = await anon.from(table).select("id");
+      expect(data ?? []).toHaveLength(0);
+    }
+
+    // The admin (service-role bypass) sees the seeded rows.
+    const { data: seen } = await admin
+      .from("wave_weeks")
+      .select("id")
+      .eq("tenant_id", t!.id);
+    expect((seen ?? []).length).toBeGreaterThan(0);
   });
 
   afterAll(async () => {

@@ -78,6 +78,7 @@ export const config = {
     "/admin/dashboard/:path*",
     "/admin/admins/:path*",
     "/admin/instructors/:path*",
+    "/admin/waves/:path*",
     "/admin/members/:path*",
     "/student/dashboard/:path*",
   ],
