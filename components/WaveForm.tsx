@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   createWave,
   updateWave,
@@ -25,25 +24,21 @@ const TYPE_LABELS: Record<(typeof WAVE_TYPES)[number], string> = {
 };
 
 /**
- * Shared create/edit form for a wave (name, rich-text description, Online/Offline
- * type). The same surface backs the Waves-tab create page and the edit modal on a
- * wave's page (FR-006). Client-side validation pre-checks before the server action
- * re-validates authoritatively.
+ * Edit form for a wave (name, rich-text description, Online/Offline type), used
+ * by the edit modal on a wave's page (FR-006). Creation now happens in the
+ * one-page `WaveBuilder`; this form is the in-place editor. Client-side
+ * validation pre-checks before the server action re-validates authoritatively.
  */
 export default function WaveForm({
   wave,
   onCancel,
   onSaved,
-  redirectTo,
 }: {
   wave?: WaveRow;
   onCancel?: () => void;
   onSaved?: () => void;
-  /** Serializable alternative to onSaved, usable from a Server Component parent. */
-  redirectTo?: string;
 }) {
   const isEdit = Boolean(wave);
-  const router = useRouter();
   const [type, setType] = useState<"online" | "offline" | "">(wave?.type ?? "");
   const [clientError, setClientError] = useState<string | null>(null);
 
@@ -68,7 +63,6 @@ export default function WaveForm({
   useEffect(() => {
     if (!state.saved) return;
     onSaved?.();
-    if (redirectTo) router.push(redirectTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.saved]);
 

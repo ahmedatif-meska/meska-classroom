@@ -72,7 +72,13 @@ const newWeek = (): DraftWeek => ({
   savedId: null,
 });
 
-export default function WaveBuilder() {
+export default function WaveBuilder({
+  redirectTo = "/admin/waves",
+}: {
+  /** Where to go after a successful Save. The add-member flow returns to its
+      form (re-opening the modal) so the new wave can be assigned right away. */
+  redirectTo?: string;
+}) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [type, setType] = useState<"online" | "offline" | "">("");
@@ -217,7 +223,7 @@ export default function WaveBuilder() {
         }
       }
 
-      router.push("/admin/waves"); // all persisted — leave pending true while navigating
+      router.push(redirectTo); // all persisted — leave pending true while navigating
     } catch {
       fail(strings.wavesSaveFailed);
     }

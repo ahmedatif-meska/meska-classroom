@@ -1,7 +1,6 @@
 import Link from "next/link";
 import DashboardShell from "@/components/DashboardShell";
 import AdminSidebarFooter from "@/components/AdminSidebarFooter";
-import WaveForm from "@/components/WaveForm";
 import WaveBuilder from "@/components/WaveBuilder";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
@@ -48,18 +47,12 @@ export default async function NewWavePage({
           {strings.waveFormSubtitle}
         </p>
 
-        {fromMembers ? (
-          // From the add-member flow: create just the basics, then return to the
-          // member form (redirectTo is a serializable string for this RSC).
-          <div className="mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-surface p-6 sm:p-8">
-            <WaveForm redirectTo={redirectTo} />
-          </div>
-        ) : (
-          // Standalone: build the whole wave (basics + weeks/content) on this page.
-          <div className="mt-8">
-            <WaveBuilder />
-          </div>
-        )}
+        {/* Both entry points (Waves tab and the add-member flow) use the same
+            one-page builder. From the add-member flow we return to its form on
+            Save so the new wave can be assigned right away. */}
+        <div className="mt-8">
+          <WaveBuilder redirectTo={redirectTo} />
+        </div>
       </div>
     </DashboardShell>
   );
