@@ -22,6 +22,7 @@ export type AdminSubmission = { studentName: string; url: string | null };
 export type AdminAssignment = {
   id: string;
   title: string;
+  url: string | null;
   instructions_html: string | null;
   due_at: string | null;
   submissions: AdminSubmission[];
@@ -61,7 +62,7 @@ export async function fetchWaveContent(
         .eq("tenant_id", waveId),
       supabase
         .from("wave_assignments")
-        .select("id, week_id, title, instructions_html, due_at")
+        .select("id, week_id, title, file_path, instructions_html, due_at")
         .eq("tenant_id", waveId)
         .order("created_at", { ascending: true }),
       supabase
@@ -79,6 +80,17 @@ export async function fetchWaveContent(
   await Promise.all(
     materials.map(async (m) => {
       matUrl.set(m.id, await signedUrl(supabase, MATERIALS_BUCKET, m.file_path));
+    })
+  );
+
+  // Assignment files live in the same wave-materials bucket (admin-uploaded).
+  const asgUrl = new Map<string, string | null>();
+  await Promise.all(
+    assignments.map(async (a) => {
+      asgUrl.set(
+        a.id,
+        await signedUrl(supabase, MATERIALS_BUCKET, a.file_path)
+      );
     })
   );
 
@@ -107,6 +119,7 @@ export async function fetchWaveContent(
         (a): AdminAssignment => ({
           id: a.id,
           title: a.title,
+          url: asgUrl.get(a.id) ?? null,
           instructions_html: a.instructions_html,
           due_at: a.due_at,
           submissions: subByAssignment.get(a.id) ?? [],

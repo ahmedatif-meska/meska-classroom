@@ -20,7 +20,6 @@ const actions = vi.hoisted(() => ({
   addMaterial: vi.fn(async () => ({ saved: true })),
   removeMaterial: vi.fn(async () => ({ saved: true })),
   addAssignment: vi.fn(async () => ({ saved: true })),
-  updateAssignment: vi.fn(async () => ({ saved: true })),
   removeAssignment: vi.fn(async () => ({ saved: true })),
   push: vi.fn(),
 }));
@@ -34,7 +33,6 @@ vi.mock("@/app/admin/waves/actions", () => ({
   addMaterial: actions.addMaterial,
   removeMaterial: actions.removeMaterial,
   addAssignment: actions.addAssignment,
-  updateAssignment: actions.updateAssignment,
   removeAssignment: actions.removeAssignment,
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: actions.push }) }));
@@ -46,8 +44,11 @@ import WaveBuilder from "@/components/WaveBuilder";
 
 beforeEach(() => vi.clearAllMocks());
 
+const pdf = (n: string) => new File(["x"], n, { type: "application/pdf" });
 const saveButton = () =>
   screen.getByRole("button", { name: strings.waveFormSubmitLabel });
+const addWeekBtn = () =>
+  screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` });
 const setBasics = () => {
   fireEvent.change(screen.getByLabelText(/wave name/i), {
     target: { value: "July" },
@@ -74,7 +75,8 @@ const EXISTING = {
         {
           id: "a1",
           title: "Homework",
-          instructions_html: "do it",
+          url: "http://x/a1",
+          instructions_html: null,
           due_at: null,
           submissions: [],
         },
@@ -87,27 +89,25 @@ describe("WaveBuilder — create", () => {
   it("renders the basics, an Add-week button and a Save button", () => {
     render(<WaveBuilder />);
     expect(screen.getByLabelText(/wave name/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` })
-    ).toBeInTheDocument();
+    expect(addWeekBtn()).toBeInTheDocument();
     expect(saveButton()).toBeInTheDocument();
     expect(screen.getByText(strings.weeksEmptyNote)).toBeInTheDocument();
   });
 
-  it("adds a week with material and assignment controls when Add week is clicked", () => {
+  it("a new week exposes bulk material + assignment uploaders", () => {
     render(<WaveBuilder />);
-    fireEvent.click(
-      screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` })
-    );
+    fireEvent.click(addWeekBtn());
     expect(
       screen.getByPlaceholderText(strings.weekTitlePlaceholder)
     ).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(strings.materialAddLabel))).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: `+ ${strings.materialAddLabel}` })
+      screen.getByText(new RegExp(strings.assignmentAddLabel))
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: `+ ${strings.assignmentAddLabel}` })
-    ).toBeInTheDocument();
+    // Two multi-file inputs: materials + assignments.
+    expect(document.querySelectorAll('input[type="file"][multiple]')).toHaveLength(
+      2
+    );
   });
 
   it("blocks Save with a missing type and writes nothing", async () => {
@@ -120,29 +120,13 @@ describe("WaveBuilder — create", () => {
     expect(actions.createWave).not.toHaveBeenCalled();
   });
 
-  it("persists the whole draft in order: wave → week → material + assignment", async () => {
+  it("persists the draft in order: wave → week → material + assignment files", async () => {
     render(<WaveBuilder />);
     setBasics();
-    fireEvent.click(
-      screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` })
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: `+ ${strings.materialAddLabel}` })
-    );
-    fireEvent.change(screen.getByPlaceholderText(strings.materialTitleLabel), {
-      target: { value: "Slides" },
-    });
-    const file = new File(["x"], "slides.pdf", { type: "application/pdf" });
-    fireEvent.change(document.querySelector('input[type="file"]')!, {
-      target: { files: [file] },
-    });
-    fireEvent.click(
-      screen.getByRole("button", { name: `+ ${strings.assignmentAddLabel}` })
-    );
-    const titles = screen.getAllByPlaceholderText(strings.assignmentTitleLabel);
-    fireEvent.change(titles[titles.length - 1], {
-      target: { value: "Homework 1" },
-    });
+    fireEvent.click(addWeekBtn());
+    const fileInputs = document.querySelectorAll('input[type="file"]');
+    fireEvent.change(fileInputs[0], { target: { files: [pdf("slides.pdf")] } }); // materials
+    fireEvent.change(fileInputs[1], { target: { files: [pdf("hw.pdf")] } }); // assignments
 
     fireEvent.click(saveButton());
 
@@ -155,31 +139,30 @@ describe("WaveBuilder — create", () => {
     );
     expect(actions.addMaterial.mock.calls[0][1].get("week_id")).toBe("wk1");
     expect(actions.addAssignment.mock.calls[0][1].get("week_id")).toBe("wk1");
+    expect(
+      (actions.addAssignment.mock.calls[0][1].get("file") as File).name
+    ).toBe("hw.pdf");
   });
 });
 
 describe("WaveBuilder — edit (seeded)", () => {
-  it("pre-fills the saved data and shows existing material/assignment", () => {
+  it("pre-fills the saved data and shows existing material/assignment files", () => {
     render(<WaveBuilder existing={EXISTING} />);
     expect(screen.getByLabelText(/wave name/i)).toHaveValue("July");
-    expect(
-      screen.getByDisplayValue("Week 1") // editable week title
-    ).toBeInTheDocument();
-    expect(screen.getByText("Slides")).toBeInTheDocument(); // material indicator
-    expect(screen.getByDisplayValue("Homework")).toBeInTheDocument(); // assignment title
+    expect(screen.getByDisplayValue("Week 1")).toBeInTheDocument();
+    expect(screen.getByText("Slides")).toBeInTheDocument();
+    expect(screen.getByText("Homework")).toBeInTheDocument();
   });
 
-  it("Save updates the existing wave/week/assignment (no create/add)", async () => {
+  it("Save updates the existing wave + week (no create/add for untouched files)", async () => {
     render(<WaveBuilder existing={EXISTING} />);
     fireEvent.click(saveButton());
     await waitFor(() => expect(actions.updateWave).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(actions.updateWeek).toHaveBeenCalledTimes(1));
-    await waitFor(() =>
-      expect(actions.updateAssignment).toHaveBeenCalledTimes(1)
-    );
     expect(actions.createWave).not.toHaveBeenCalled();
     expect(actions.addWeek).not.toHaveBeenCalled();
     expect(actions.addMaterial).not.toHaveBeenCalled();
+    expect(actions.addAssignment).not.toHaveBeenCalled();
   });
 
   it("deleting an existing material removes it via the server immediately", async () => {
@@ -191,6 +174,20 @@ describe("WaveBuilder — edit (seeded)", () => {
     expect(actions.removeMaterial.mock.calls[0][1].get("id")).toBe("m1");
     await waitFor(() =>
       expect(screen.queryByText("Slides")).not.toBeInTheDocument()
+    );
+  });
+
+  it("deleting an existing assignment removes it via the server immediately", async () => {
+    render(<WaveBuilder existing={EXISTING} />);
+    fireEvent.click(
+      screen.getByRole("button", { name: strings.assignmentRemoveLabel })
+    );
+    await waitFor(() =>
+      expect(actions.removeAssignment).toHaveBeenCalledTimes(1)
+    );
+    expect(actions.removeAssignment.mock.calls[0][1].get("id")).toBe("a1");
+    await waitFor(() =>
+      expect(screen.queryByText("Homework")).not.toBeInTheDocument()
     );
   });
 });

@@ -11,7 +11,6 @@ import {
   addMaterial,
   removeMaterial,
   addAssignment,
-  updateAssignment,
   removeAssignment,
 } from "@/app/admin/waves/actions";
 import {
@@ -28,13 +27,14 @@ import strings from "@/lib/strings";
 //   • Create — empty client draft; a single Save writes the whole thing.
 //   • Edit   — seeded from the saved wave; the SAME layout, pre-filled and
 //     editable. Existing materials/assignments show as indicators with a Delete
-//     (deletes hit the server immediately); every other change (basics, week
-//     fields, new weeks/materials/assignments) is applied by the single Save.
-// `saved`/`savedId`/`existingId` flags make Save resumable and let it tell new
-// items (insert) from existing ones (update / leave).
+//     (deletes hit the server immediately); every other change is applied by the
+//     single Save.
+// Materials AND assignments are bulk file uploads (filename = title); the only
+// difference is which table/section they land in. Students still submit work to
+// assignments separately.
 // ---------------------------------------------------------------------------
 
-type DraftMaterial = {
+type DraftFile = {
   key: string;
   title: string;
   file: File | null;
@@ -42,23 +42,17 @@ type DraftMaterial = {
   existingId?: string;
   url?: string | null;
 };
-type DraftAssignment = {
-  key: string;
-  title: string;
-  instructions: string;
-  dueAt: string;
-  saved: boolean;
-  existingId?: string;
-};
 type DraftWeek = {
   key: string;
   title: string;
   description: string;
-  materials: DraftMaterial[];
-  assignments: DraftAssignment[];
+  materials: DraftFile[];
+  assignments: DraftFile[];
   savedId: string | null;
   existingId?: string;
 };
+
+const FILE_ACCEPT = ".pdf,.ppt,.pptx";
 
 const inputClass =
   "rounded-2xl border border-slate-200 bg-page px-4 py-3 text-base text-ink placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
@@ -66,23 +60,18 @@ const smallInputClass =
   "rounded-xl border border-slate-200 bg-page px-3 py-2 text-base text-ink placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 const removeBtnClass =
   "shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60";
+const addBtnClass =
+  "inline-flex cursor-pointer self-start rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-slate-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand";
 
 const TYPE_LABELS: Record<(typeof WAVE_TYPES)[number], string> = {
   online: strings.waveTypeOnline,
   offline: strings.waveTypeOffline,
 };
 
-const newMaterial = (): DraftMaterial => ({
+const fileEntry = (f: File): DraftFile => ({
   key: crypto.randomUUID(),
-  title: "",
-  file: null,
-  saved: false,
-});
-const newAssignment = (): DraftAssignment => ({
-  key: crypto.randomUUID(),
-  title: "",
-  instructions: "",
-  dueAt: "",
+  title: f.name,
+  file: f,
   saved: false,
 });
 const newWeek = (): DraftWeek => ({
@@ -93,16 +82,6 @@ const newWeek = (): DraftWeek => ({
   assignments: [],
   savedId: null,
 });
-
-/** An ISO timestamp → the local value a <input type="datetime-local"> expects. */
-const toLocalInput = (iso: string | null): string => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
-};
 
 /** Seed the draft from saved content (edit mode). */
 const seedWeeks = (ws: AdminWeek[]): DraftWeek[] =>
@@ -124,11 +103,78 @@ const seedWeeks = (ws: AdminWeek[]): DraftWeek[] =>
       key: a.id,
       existingId: a.id,
       title: a.title,
-      instructions: a.instructions_html ?? "",
-      dueAt: toLocalInput(a.due_at),
+      file: null,
       saved: true,
+      url: a.url,
     })),
   }));
+
+/** A bulk-upload file list (used identically for materials and assignments). */
+function FileSection({
+  heading,
+  items,
+  addLabel,
+  removeLabel,
+  onAdd,
+  onRemove,
+}: {
+  heading: string;
+  items: DraftFile[];
+  addLabel: string;
+  removeLabel: string;
+  onAdd: (files: File[]) => void;
+  onRemove: (item: DraftFile) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <h4 className="text-sm font-semibold text-slate-500">{heading}</h4>
+      {items.map((item) => (
+        <div
+          key={item.key}
+          className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-page p-3"
+        >
+          <span className="min-w-0 truncate text-sm text-ink">
+            📄{" "}
+            {item.url ? (
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-brand hover:underline"
+              >
+                {item.title}
+              </a>
+            ) : (
+              item.title
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={() => onRemove(item)}
+            className={removeBtnClass}
+          >
+            {removeLabel}
+          </button>
+        </div>
+      ))}
+      <label className={addBtnClass}>
+        + {addLabel}
+        <input
+          type="file"
+          multiple
+          accept={FILE_ACCEPT}
+          className="sr-only"
+          onChange={(e) => {
+            const files = Array.from(e.target.files ?? []);
+            e.target.value = ""; // allow re-selecting the same file later
+            if (files.length) onAdd(files);
+          }}
+        />
+      </label>
+      <p className="text-xs text-slate-500">{strings.materialFileHelp}</p>
+    </div>
+  );
+}
 
 export default function WaveBuilder({
   redirectTo = "/admin/waves",
@@ -155,39 +201,8 @@ export default function WaveBuilder({
   // Survives Save retries so a created wave is never created twice.
   const waveIdRef = useRef<string | null>(existing?.wave.id ?? null);
 
-  // --- nested draft updaters -------------------------------------------------
   const patchWeek = (key: string, patch: Partial<DraftWeek>) =>
     setWeeks((ws) => ws.map((w) => (w.key === key ? { ...w, ...patch } : w)));
-  const patchMaterial = (wk: string, mk: string, patch: Partial<DraftMaterial>) =>
-    setWeeks((ws) =>
-      ws.map((w) =>
-        w.key === wk
-          ? {
-              ...w,
-              materials: w.materials.map((m) =>
-                m.key === mk ? { ...m, ...patch } : m
-              ),
-            }
-          : w
-      )
-    );
-  const patchAssignment = (
-    wk: string,
-    ak: string,
-    patch: Partial<DraftAssignment>
-  ) =>
-    setWeeks((ws) =>
-      ws.map((w) =>
-        w.key === wk
-          ? {
-              ...w,
-              assignments: w.assignments.map((a) =>
-                a.key === ak ? { ...a, ...patch } : a
-              ),
-            }
-          : w
-      )
-    );
 
   // --- immediate deletes (existing items hit the server, new ones are local) -
   const removeWeekRow = async (week: DraftWeek) => {
@@ -200,29 +215,21 @@ export default function WaveBuilder({
     }
     setWeeks((ws) => ws.filter((w) => w.key !== week.key));
   };
-  const removeMaterialRow = async (week: DraftWeek, m: DraftMaterial) => {
-    if (m.existingId) {
+  const removeFile = async (
+    week: DraftWeek,
+    item: DraftFile,
+    field: "materials" | "assignments",
+    action: typeof removeMaterial
+  ) => {
+    if (item.existingId) {
       const fd = new FormData();
-      fd.set("id", m.existingId);
+      fd.set("id", item.existingId);
       fd.set("wave_id", waveIdRef.current ?? "");
-      const r = await removeMaterial({}, fd);
+      const r = await action({}, fd);
       if (!r.saved) return setError(r.error ?? strings.wavesMaterialSaveFailed);
     }
     patchWeek(week.key, {
-      materials: week.materials.filter((x) => x.key !== m.key),
-    });
-  };
-  const removeAssignmentRow = async (week: DraftWeek, a: DraftAssignment) => {
-    if (a.existingId) {
-      const fd = new FormData();
-      fd.set("id", a.existingId);
-      fd.set("wave_id", waveIdRef.current ?? "");
-      const r = await removeAssignment({}, fd);
-      if (!r.saved)
-        return setError(r.error ?? strings.wavesAssignmentSaveFailed);
-    }
-    patchWeek(week.key, {
-      assignments: week.assignments.filter((x) => x.key !== a.key),
+      [field]: week[field].filter((x) => x.key !== item.key),
     });
   };
 
@@ -287,14 +294,13 @@ export default function WaveBuilder({
           if (!wres.saved) return fail(strings.wavesWeekSaveFailed, working);
         }
 
+        // Materials: upload each not-yet-saved file (filename = title).
         for (const m of week.materials) {
-          if (m.existingId || m.saved) continue; // already stored — never re-upload
-          if (!m.title.trim() && !m.file) {
+          if (m.existingId || m.saved) continue;
+          if (!m.file) {
             m.saved = true;
             continue;
           }
-          if (!m.title.trim() || !m.file)
-            return fail(strings.wavesMaterialSaveFailed, working);
           const chk = validateMaterialFile({
             type: m.file.type,
             size: m.file.size,
@@ -303,7 +309,7 @@ export default function WaveBuilder({
           const mfd = new FormData();
           mfd.set("wave_id", waveId);
           mfd.set("week_id", week.savedId);
-          mfd.set("title", m.title.trim());
+          mfd.set("title", m.title);
           mfd.set("file", m.file);
           const mres = await addMaterial({}, mfd);
           if (!mres.saved)
@@ -311,36 +317,22 @@ export default function WaveBuilder({
           m.saved = true;
         }
 
+        // Assignments: same as materials (addAssignment uses the filename).
         for (const a of week.assignments) {
-          if (a.existingId) {
-            const afd = new FormData();
-            afd.set("id", a.existingId);
-            afd.set("wave_id", waveId);
-            afd.set("title", a.title.trim());
-            afd.set("instructions_html", a.instructions);
-            afd.set("due_at", a.dueAt);
-            const ares = await updateAssignment({}, afd);
-            if (!ares.saved)
-              return fail(
-                ares.error ?? strings.wavesAssignmentSaveFailed,
-                working
-              );
+          if (a.existingId || a.saved) continue;
+          if (!a.file) {
+            a.saved = true;
             continue;
           }
-          if (a.saved) continue;
-          if (!a.title.trim()) {
-            if (!a.instructions.trim() && !a.dueAt) {
-              a.saved = true;
-              continue;
-            }
-            return fail(strings.wavesAssignmentSaveFailed, working);
-          }
+          const chk = validateMaterialFile({
+            type: a.file.type,
+            size: a.file.size,
+          });
+          if (!chk.ok) return fail(chk.error, working);
           const afd = new FormData();
           afd.set("wave_id", waveId);
           afd.set("week_id", week.savedId);
-          afd.set("title", a.title.trim());
-          afd.set("instructions_html", a.instructions);
-          afd.set("due_at", a.dueAt);
+          afd.set("file", a.file);
           const ares = await addAssignment({}, afd);
           if (!ares.saved)
             return fail(ares.error ?? strings.wavesAssignmentSaveFailed, working);
@@ -461,163 +453,38 @@ export default function WaveBuilder({
                 className={smallInputClass}
               />
 
-              {/* Materials */}
-              <div className="flex flex-col gap-2">
-                <h4 className="text-sm font-semibold text-slate-500">
-                  {strings.studentMaterialsLabel}
-                </h4>
-                {week.materials.map((m) =>
-                  m.existingId ? (
-                    // Already uploaded — an indicator it exists, plus Delete.
-                    <div
-                      key={m.key}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-page p-3"
-                    >
-                      <span className="min-w-0 truncate text-sm text-ink">
-                        📄{" "}
-                        {m.url ? (
-                          <a
-                            href={m.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-brand hover:underline"
-                          >
-                            {m.title}
-                          </a>
-                        ) : (
-                          m.title
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => void removeMaterialRow(week, m)}
-                        className={removeBtnClass}
-                      >
-                        {strings.materialRemoveLabel}
-                      </button>
-                    </div>
-                  ) : (
-                    <div
-                      key={m.key}
-                      className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-page p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <input
-                          type="text"
-                          value={m.title}
-                          onChange={(e) =>
-                            patchMaterial(week.key, m.key, {
-                              title: e.target.value,
-                            })
-                          }
-                          placeholder={strings.materialTitleLabel}
-                          className={`${smallInputClass} flex-1`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => void removeMaterialRow(week, m)}
-                          className={removeBtnClass}
-                        >
-                          {strings.materialRemoveLabel}
-                        </button>
-                      </div>
-                      <input
-                        type="file"
-                        accept=".pdf,.ppt,.pptx"
-                        onChange={(e) =>
-                          patchMaterial(week.key, m.key, {
-                            file: e.target.files?.[0] ?? null,
-                          })
-                        }
-                        className="text-sm text-ink file:mr-3 file:rounded-full file:border-0 file:bg-brand/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-brand"
-                      />
-                      <p className="text-xs text-slate-500">
-                        {strings.materialFileHelp}
-                      </p>
-                    </div>
-                  )
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    patchWeek(week.key, {
-                      materials: [...week.materials, newMaterial()],
-                    })
-                  }
-                  className="self-start rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                >
-                  + {strings.materialAddLabel}
-                </button>
-              </div>
+              <FileSection
+                heading={strings.studentMaterialsLabel}
+                items={week.materials}
+                addLabel={strings.materialAddLabel}
+                removeLabel={strings.materialRemoveLabel}
+                onAdd={(files) =>
+                  patchWeek(week.key, {
+                    materials: [...week.materials, ...files.map(fileEntry)],
+                  })
+                }
+                onRemove={(item) =>
+                  void removeFile(week, item, "materials", removeMaterial)
+                }
+              />
 
-              {/* Assignments */}
-              <div className="flex flex-col gap-2">
-                <h4 className="text-sm font-semibold text-slate-500">
-                  {strings.studentAssignmentsLabel}
-                </h4>
-                {week.assignments.map((a) => (
-                  <div
-                    key={a.key}
-                    className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-page p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <input
-                        type="text"
-                        value={a.title}
-                        onChange={(e) =>
-                          patchAssignment(week.key, a.key, {
-                            title: e.target.value,
-                          })
-                        }
-                        placeholder={strings.assignmentTitleLabel}
-                        className={`${smallInputClass} flex-1`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => void removeAssignmentRow(week, a)}
-                        className={removeBtnClass}
-                      >
-                        {strings.assignmentRemoveLabel}
-                      </button>
-                    </div>
-                    <textarea
-                      value={a.instructions}
-                      onChange={(e) =>
-                        patchAssignment(week.key, a.key, {
-                          instructions: e.target.value,
-                        })
-                      }
-                      rows={2}
-                      placeholder={strings.assignmentInstructionsLabel}
-                      className={smallInputClass}
-                    />
-                    <label className="text-xs font-semibold text-slate-500">
-                      {strings.assignmentDueLabel}
-                      <input
-                        type="datetime-local"
-                        value={a.dueAt}
-                        onChange={(e) =>
-                          patchAssignment(week.key, a.key, {
-                            dueAt: e.target.value,
-                          })
-                        }
-                        className={`${smallInputClass} mt-1 block w-full`}
-                      />
-                    </label>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    patchWeek(week.key, {
-                      assignments: [...week.assignments, newAssignment()],
-                    })
-                  }
-                  className="self-start rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                >
-                  + {strings.assignmentAddLabel}
-                </button>
-              </div>
+              <FileSection
+                heading={strings.studentAssignmentsLabel}
+                items={week.assignments}
+                addLabel={strings.assignmentAddLabel}
+                removeLabel={strings.assignmentRemoveLabel}
+                onAdd={(files) =>
+                  patchWeek(week.key, {
+                    assignments: [
+                      ...week.assignments,
+                      ...files.map(fileEntry),
+                    ],
+                  })
+                }
+                onRemove={(item) =>
+                  void removeFile(week, item, "assignments", removeAssignment)
+                }
+              />
             </section>
           ))
         )}

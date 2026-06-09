@@ -26,6 +26,21 @@ export function materialPath(
 }
 
 /**
+ * Admin-uploaded assignment files live in the SAME private wave-materials bucket
+ * (so the existing admin-write / student-read-by-wave-folder policies apply).
+ * `‹wave_id›/‹week_id›/assignment-‹uuid›.‹ext›` — wave id first (isolation),
+ * prefixed to keep them visually distinct from materials in the bucket.
+ */
+export function assignmentPath(
+  waveId: string,
+  weekId: string,
+  id: string,
+  ext: string
+): string {
+  return `${waveId}/${weekId}/assignment-${id}.${ext}`;
+}
+
+/**
  * `‹wave_id›/‹assignment_id›/‹student_id›/submission.‹ext›` — wave id first, and
  * the student id as the third segment so the Storage policy can confine a student
  * to their OWN submissions. Deterministic per (assignment, student) so a

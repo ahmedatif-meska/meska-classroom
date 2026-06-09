@@ -13,6 +13,7 @@ import {
   MATERIALS_BUCKET,
   SUBMISSIONS_BUCKET,
   materialPath,
+  assignmentPath,
 } from "@/lib/waves/files";
 import { invalidate } from "@/lib/cache/redis";
 import { adminListKey, studentKey } from "@/lib/cache/keys";
@@ -144,21 +145,22 @@ export async function deleteWave(
 
   // Gather before the delete: members to unassign (to drop their cached profile)
   // and storage objects to clean up (DB rows cascade, but files do not).
-  const [{ data: members }, { data: materials }, { data: subs }] =
+  const [{ data: members }, { data: materials }, { data: assignments }, { data: subs }] =
     await Promise.all([
       supabase.from("students").select("user_id").eq("tenant_id", id),
       supabase.from("wave_materials").select("file_path").eq("tenant_id", id),
+      supabase.from("wave_assignments").select("file_path").eq("tenant_id", id),
       supabase.from("wave_submissions").select("file_path").eq("tenant_id", id),
     ]);
 
   const { error } = await supabase.from("tenants").delete().eq("id", id);
   if (error) return { error: strings.wavesRemoveFailed };
 
-  await removeObjects(
-    supabase,
-    MATERIALS_BUCKET,
-    (materials ?? []).map((m) => m.file_path)
-  );
+  // Materials AND assignment files share the materials bucket.
+  await removeObjects(supabase, MATERIALS_BUCKET, [
+    ...(materials ?? []).map((m) => m.file_path),
+    ...(assignments ?? []).map((a) => a.file_path),
+  ]);
   await removeObjects(
     supabase,
     SUBMISSIONS_BUCKET,
@@ -269,7 +271,7 @@ export async function removeWeek(
     .eq("week_id", id);
   const { data: assignments } = await supabase
     .from("wave_assignments")
-    .select("id")
+    .select("id, file_path")
     .eq("week_id", id);
   const assignmentIds = (assignments ?? []).map((a) => a.id);
   let submissionPaths: string[] = [];
@@ -284,11 +286,11 @@ export async function removeWeek(
   const { error } = await supabase.from("wave_weeks").delete().eq("id", id);
   if (error) return { error: strings.wavesWeekSaveFailed };
 
-  await removeObjects(
-    supabase,
-    MATERIALS_BUCKET,
-    (materials ?? []).map((m) => m.file_path)
-  );
+  // Materials AND assignment files both live in the materials bucket.
+  await removeObjects(supabase, MATERIALS_BUCKET, [
+    ...(materials ?? []).map((m) => m.file_path),
+    ...(assignments ?? []).map((a) => a.file_path),
+  ]);
   await removeObjects(supabase, SUBMISSIONS_BUCKET, submissionPaths);
 
   revalidatePath(wavePath(waveId));
@@ -402,27 +404,39 @@ export async function addAssignment(
 
   const waveId = formData.get("wave_id");
   const weekId = formData.get("week_id");
-  const title = formData.get("title");
-  if (
-    typeof waveId !== "string" ||
-    !waveId ||
-    typeof weekId !== "string" ||
-    !weekId ||
-    typeof title !== "string" ||
-    !title.trim()
-  ) {
+  if (typeof waveId !== "string" || !waveId || typeof weekId !== "string" || !weekId)
     return { error: strings.wavesAssignmentSaveFailed };
-  }
+
+  // An assignment is now an admin-uploaded file (like a material); its title is
+  // the original filename. Students still submit their own work separately.
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0)
+    return { error: strings.wavesMaterialInvalid };
+
+  const check = validateMaterialFile({ type: file.type, size: file.size });
+  if (!check.ok) return { error: check.error };
+
+  const path = assignmentPath(
+    waveId,
+    weekId,
+    crypto.randomUUID(),
+    extensionForType(file.type)
+  );
+  const { error: upErr } = await supabase.storage
+    .from(MATERIALS_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (upErr) return { error: strings.wavesMaterialUploadFailed };
 
   const { error } = await supabase.from("wave_assignments").insert({
     tenant_id: waveId,
     week_id: weekId,
-    title: title.trim(),
-    instructions_html:
-      sanitizeDescription(formData.get("instructions_html")) || null,
-    due_at: parseDueAt(formData.get("due_at")),
+    title: file.name,
+    file_path: path,
   });
-  if (error) return { error: strings.wavesAssignmentSaveFailed };
+  if (error) {
+    await removeObjects(supabase, MATERIALS_BUCKET, [path]);
+    return { error: strings.wavesAssignmentSaveFailed };
+  }
 
   revalidatePath(wavePath(waveId));
   return { saved: true };
@@ -478,10 +492,10 @@ export async function removeAssignment(
   if (typeof id !== "string" || !id || typeof waveId !== "string" || !waveId)
     return { error: strings.wavesAssignmentSaveFailed };
 
-  const { data: subs } = await supabase
-    .from("wave_submissions")
-    .select("file_path")
-    .eq("assignment_id", id);
+  const [{ data: existing }, { data: subs }] = await Promise.all([
+    supabase.from("wave_assignments").select("file_path").eq("id", id).maybeSingle(),
+    supabase.from("wave_submissions").select("file_path").eq("assignment_id", id),
+  ]);
 
   const { error } = await supabase
     .from("wave_assignments")
@@ -489,6 +503,9 @@ export async function removeAssignment(
     .eq("id", id);
   if (error) return { error: strings.wavesAssignmentSaveFailed };
 
+  // The assignment's own uploaded file lives in the materials bucket; student
+  // submissions live in the submissions bucket. Clean up both (best-effort).
+  await removeObjects(supabase, MATERIALS_BUCKET, [existing?.file_path]);
   await removeObjects(
     supabase,
     SUBMISSIONS_BUCKET,

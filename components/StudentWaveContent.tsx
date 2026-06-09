@@ -15,6 +15,7 @@ type Assignment = {
   id: string;
   week_id: string;
   title: string;
+  file_path: string | null;
   instructions_html: string | null;
   due_at: string | null;
 };
@@ -57,7 +58,7 @@ export default async function StudentWaveContent({
         .eq("tenant_id", tenantId),
       supabase
         .from("wave_assignments")
-        .select("id, week_id, title, instructions_html, due_at")
+        .select("id, week_id, title, file_path, instructions_html, due_at")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true }),
       supabase
@@ -88,6 +89,17 @@ export default async function StudentWaveContent({
       matUrls.set(
         m.id,
         await signedUrl(supabase, MATERIALS_BUCKET, m.file_path)
+      );
+    })
+  );
+
+  // Assignment files live in the same materials bucket (admin-uploaded).
+  const asgUrls = new Map<string, string | null>();
+  await Promise.all(
+    assignments.map(async (a) => {
+      asgUrls.set(
+        a.id,
+        await signedUrl(supabase, MATERIALS_BUCKET, a.file_path)
       );
     })
   );
@@ -148,27 +160,41 @@ export default async function StudentWaveContent({
                   {strings.studentAssignmentsLabel}
                 </h4>
                 <ul className="mt-2 flex flex-col gap-4">
-                  {weekAssignments.map((a) => (
-                    <li
-                      key={a.id}
-                      className="rounded-xl border border-slate-100 bg-page p-4"
-                    >
-                      <p className="font-semibold text-ink">{a.title}</p>
-                      {a.due_at ? (
-                        <p className="mt-1 text-xs text-slate-500">
-                          {strings.studentDueLabel}:{" "}
-                          {new Date(a.due_at).toLocaleDateString()}
-                        </p>
-                      ) : null}
-                      {a.instructions_html ? (
-                        <RenderedHtml html={a.instructions_html} />
-                      ) : null}
-                      <SubmitAssignment
-                        assignmentId={a.id}
-                        hasSubmission={submittedIds.has(a.id)}
-                      />
-                    </li>
-                  ))}
+                  {weekAssignments.map((a) => {
+                    const url = asgUrls.get(a.id);
+                    return (
+                      <li
+                        key={a.id}
+                        className="rounded-xl border border-slate-100 bg-page p-4"
+                      >
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                          >
+                            {a.title} — {strings.materialDownloadLabel}
+                          </a>
+                        ) : (
+                          <p className="font-semibold text-ink">{a.title}</p>
+                        )}
+                        {a.due_at ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            {strings.studentDueLabel}:{" "}
+                            {new Date(a.due_at).toLocaleDateString()}
+                          </p>
+                        ) : null}
+                        {a.instructions_html ? (
+                          <RenderedHtml html={a.instructions_html} />
+                        ) : null}
+                        <SubmitAssignment
+                          assignmentId={a.id}
+                          hasSubmission={submittedIds.has(a.id)}
+                        />
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ) : null}
