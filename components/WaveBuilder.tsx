@@ -61,7 +61,7 @@ const smallInputClass =
 const removeBtnClass =
   "shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60";
 const addBtnClass =
-  "inline-flex cursor-pointer self-start rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-slate-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand";
+  "relative inline-flex cursor-pointer self-start rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-slate-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand";
 
 const TYPE_LABELS: Record<(typeof WAVE_TYPES)[number], string> = {
   online: strings.waveTypeOnline,
