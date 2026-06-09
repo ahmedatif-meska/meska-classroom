@@ -341,8 +341,12 @@ export default function WaveBuilder({
       }
 
       router.push(redirectTo); // all persisted — leave pending true while navigating
-    } catch {
-      fail(strings.wavesSaveFailed);
+    } catch (err) {
+      // A thrown error here (vs. a returned one) means the Server Action request
+      // itself failed — most often a file too large for the request body limit.
+      // Surface the real reason instead of a generic, undebuggable message.
+      const detail = err instanceof Error && err.message ? err.message : "";
+      fail(detail ? `${strings.wavesSaveFailed} (${detail})` : strings.wavesSaveFailed);
     }
   };
 

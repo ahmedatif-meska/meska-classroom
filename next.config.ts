@@ -12,7 +12,14 @@ const supabaseHost = (() => {
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  experimental: { turbopackFileSystemCacheForDev: true },
+  // Material/assignment files are uploaded through Server Actions and the form
+  // validates up to 25 MB (see validateMaterialFile). The Server Action body
+  // limit defaults to 1 MB, which silently rejected any real PDF — raise it past
+  // 25 MB so a valid file's multipart body fits.
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
+    serverActions: { bodySizeLimit: "30mb" },
+  },
   devIndicators: false,
   images: {
     remotePatterns: supabaseHost
