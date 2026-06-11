@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
   experimental: {
     turbopackFileSystemCacheForDev: true,
     serverActions: { bodySizeLimit: "30mb" },
+    // proxy.ts matches /admin/**, and Next clones the body of every proxied
+    // request with a 10 MB default cap (proxyClientMaxBodySize) — larger upload
+    // bodies were silently truncated, so busboy failed with "Unexpected end of
+    // form". Must match bodySizeLimit or uploads between 10 and 30 MB fail.
+    proxyClientMaxBodySize: "30mb",
   },
   devIndicators: false,
   images: {
