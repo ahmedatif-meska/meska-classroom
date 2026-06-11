@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import strings from "@/lib/strings";
 
 vi.mock("next/link", () => ({
   default: ({ href, children }: { href: string; children: React.ReactNode }) => (
@@ -83,7 +84,7 @@ describe("Student Home page", () => {
 
   it("greets the student by name with the 👋 emoji", async () => {
     render(await StudentDashboard());
-    const heading = screen.getByRole("heading", { name: /welcome mona/i });
+    const heading = screen.getByRole("heading", { name: /welcome back, mona/i });
     expect(heading).toBeInTheDocument();
     expect(heading.textContent).toContain("👋");
   });
@@ -92,13 +93,16 @@ describe("Student Home page", () => {
     studentRow = { id: "m1", full_name: null };
     render(await StudentDashboard());
     expect(
-      screen.getByRole("heading", { name: /welcome mona@student\.test/i })
+      screen.getByRole("heading", { name: /welcome back, mona@student\.test/i })
     ).toBeInTheDocument();
   });
 
-  it("labels the wave as 'You are in [name]'", async () => {
+  it("shows the current wave by name under a 'Current Wave' label", async () => {
     render(await StudentDashboard());
-    expect(screen.getByText(/you are in july cohort/i)).toBeInTheDocument();
+    expect(screen.getByText(strings.studentHomeCurrentWaveLabel)).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "July Cohort" })
+    ).toBeInTheDocument();
   });
 
   it("renders the About instructors section", async () => {
@@ -117,7 +121,7 @@ describe("Student Home page", () => {
   it("keeps the QR section", async () => {
     render(await StudentDashboard());
     expect(
-      screen.getByRole("heading", { name: /your qr code/i })
+      screen.getByRole("heading", { name: /check-in/i })
     ).toBeInTheDocument();
   });
 

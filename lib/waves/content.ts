@@ -18,6 +18,12 @@ export type WaveRow = {
 };
 
 export type AdminMaterial = { id: string; title: string; url: string | null };
+export type AdminVideo = {
+  id: string;
+  title: string;
+  driveFileId: string;
+  position: number;
+};
 export type AdminSubmission = { studentName: string; url: string | null };
 export type AdminAssignment = {
   id: string;
@@ -34,6 +40,7 @@ export type AdminWeek = {
   description_html: string | null;
   materials: AdminMaterial[];
   assignments: AdminAssignment[];
+  videos: AdminVideo[];
 };
 
 type Client = Awaited<ReturnType<typeof createClient>>;
@@ -49,8 +56,13 @@ export async function fetchWaveContent(
   supabase: Client,
   waveId: string
 ): Promise<AdminWeek[]> {
-  const [{ data: weekData }, { data: matData }, { data: asgData }, { data: subData }] =
-    await Promise.all([
+  const [
+    { data: weekData },
+    { data: matData },
+    { data: asgData },
+    { data: subData },
+    { data: vidData },
+  ] = await Promise.all([
       supabase
         .from("wave_weeks")
         .select("id, title, position, description_html")
@@ -69,11 +81,17 @@ export async function fetchWaveContent(
         .from("wave_submissions")
         .select("assignment_id, file_path, student:students(full_name)")
         .eq("tenant_id", waveId),
+      supabase
+        .from("wave_videos")
+        .select("id, week_id, title, drive_file_id, position")
+        .eq("tenant_id", waveId)
+        .order("position", { ascending: true }),
     ]);
 
   const materials = matData ?? [];
   const assignments = asgData ?? [];
   const submissions = (subData ?? []) as SubmissionRow[];
+  const videos = vidData ?? [];
 
   // Pre-sign all admin download URLs (admin passes the Storage policies).
   const matUrl = new Map<string, string | null>();
@@ -123,6 +141,16 @@ export async function fetchWaveContent(
           instructions_html: a.instructions_html,
           due_at: a.due_at,
           submissions: subByAssignment.get(a.id) ?? [],
+        })
+      ),
+    videos: videos
+      .filter((v) => v.week_id === w.id)
+      .map(
+        (v): AdminVideo => ({
+          id: v.id,
+          title: v.title,
+          driveFileId: v.drive_file_id,
+          position: v.position,
         })
       ),
   }));

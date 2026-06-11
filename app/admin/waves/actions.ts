@@ -7,6 +7,7 @@ import {
   validateWaveFields,
   isMaterialObjectPath,
 } from "@/lib/waves/validation";
+import { parseDriveFileId, MAX_VIDEO_TITLE_LEN } from "@/lib/waves/video";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
 import { MATERIALS_BUCKET, SUBMISSIONS_BUCKET } from "@/lib/waves/files";
 import { logError } from "@/lib/errors/log";
@@ -20,6 +21,7 @@ export type RemoveWaveState = { error?: string; removed?: boolean };
 export type WeekState = { error?: string; saved?: boolean; id?: string };
 export type MaterialState = { error?: string; saved?: boolean };
 export type AssignmentState = { error?: string; saved?: boolean };
+export type VideoState = { error?: string; saved?: boolean };
 
 const LIST_PATH = "/admin/waves";
 
@@ -582,6 +584,196 @@ export async function removeAssignment(
     SUBMISSIONS_BUCKET,
     (subs ?? []).map((s) => s.file_path)
   );
+
+  revalidatePath(wavePath(waveId));
+  return { saved: true };
+}
+
+// ---------------------------------------------------------------------------
+// Videos (Google Drive links — no Storage upload; we persist only the file id)
+// ---------------------------------------------------------------------------
+
+/** A non-empty title within the length cap; null on failure. */
+function validVideoTitle(value: FormDataEntryValue | null): string | null {
+  const t = typeof value === "string" ? value.trim() : "";
+  if (!t || t.length > MAX_VIDEO_TITLE_LEN) return null;
+  return t;
+}
+
+export async function addVideo(
+  _prev: VideoState,
+  formData: FormData
+): Promise<VideoState> {
+  const gate = await adminClient();
+  if (!gate) return { error: strings.wavesForbidden };
+  const { supabase } = gate;
+
+  const waveId = formData.get("wave_id");
+  const weekId = formData.get("week_id");
+  if (typeof waveId !== "string" || !waveId || typeof weekId !== "string" || !weekId)
+    return { error: strings.wavesVideoSaveFailed };
+
+  const title = validVideoTitle(formData.get("title"));
+  if (!title) return { error: strings.wavesVideoTitleRequired };
+
+  // The admin pastes a Google Drive share link; we extract and store ONLY the
+  // file id, then build the embed URL ourselves at render (never trust raw input
+  // as an iframe src).
+  const driveFileId = parseDriveFileId(
+    formData.get("drive_link") as string | null
+  );
+  if (!driveFileId) return { error: strings.wavesVideoLinkInvalid };
+
+  // Server-assign the next position (current max + 1) within the week.
+  const { data: last } = await supabase
+    .from("wave_videos")
+    .select("position")
+    .eq("week_id", weekId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const position = (last?.position ?? 0) + 1;
+
+  const { error } = await supabase.from("wave_videos").insert({
+    tenant_id: waveId,
+    week_id: weekId,
+    title,
+    drive_file_id: driveFileId,
+    position,
+  });
+  if (error) {
+    await logError({
+      operation: "addVideo",
+      surface: "admin",
+      error,
+      context: { waveId, weekId },
+    });
+    return { error: strings.wavesVideoSaveFailed };
+  }
+
+  revalidatePath(wavePath(waveId));
+  return { saved: true };
+}
+
+export async function updateVideo(
+  _prev: VideoState,
+  formData: FormData
+): Promise<VideoState> {
+  const gate = await adminClient();
+  if (!gate) return { error: strings.wavesForbidden };
+  const { supabase } = gate;
+
+  const id = formData.get("id");
+  const waveId = formData.get("wave_id");
+  if (typeof id !== "string" || !id || typeof waveId !== "string" || !waveId)
+    return { error: strings.wavesVideoSaveFailed };
+
+  const title = validVideoTitle(formData.get("title"));
+  if (!title) return { error: strings.wavesVideoTitleRequired };
+
+  const driveFileId = parseDriveFileId(
+    formData.get("drive_link") as string | null
+  );
+  if (!driveFileId) return { error: strings.wavesVideoLinkInvalid };
+
+  const { error } = await supabase
+    .from("wave_videos")
+    .update({ title, drive_file_id: driveFileId })
+    .eq("id", id);
+  if (error) {
+    await logError({
+      operation: "updateVideo",
+      surface: "admin",
+      error,
+      context: { videoId: id, waveId },
+    });
+    return { error: strings.wavesVideoSaveFailed };
+  }
+
+  revalidatePath(wavePath(waveId));
+  return { saved: true };
+}
+
+export async function reorderVideo(
+  _prev: VideoState,
+  formData: FormData
+): Promise<VideoState> {
+  const gate = await adminClient();
+  if (!gate) return { error: strings.wavesForbidden };
+  const { supabase } = gate;
+
+  const id = formData.get("id");
+  const waveId = formData.get("wave_id");
+  const weekId = formData.get("week_id");
+  const direction = formData.get("direction");
+  if (
+    typeof id !== "string" ||
+    !id ||
+    typeof waveId !== "string" ||
+    !waveId ||
+    typeof weekId !== "string" ||
+    !weekId ||
+    (direction !== "up" && direction !== "down")
+  ) {
+    return { error: strings.wavesVideoSaveFailed };
+  }
+
+  // Load the week's videos in display order and swap this one with its neighbour.
+  const { data: rows } = await supabase
+    .from("wave_videos")
+    .select("id, position")
+    .eq("week_id", weekId)
+    .order("position", { ascending: true });
+  const list = (rows ?? []) as { id: string; position: number }[];
+  const idx = list.findIndex((v) => v.id === id);
+  if (idx < 0) return { error: strings.wavesVideoSaveFailed };
+
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  if (swapIdx < 0 || swapIdx >= list.length) return { saved: true }; // no-op at the ends
+
+  const a = list[idx];
+  const b = list[swapIdx];
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    supabase.from("wave_videos").update({ position: b.position }).eq("id", a.id),
+    supabase.from("wave_videos").update({ position: a.position }).eq("id", b.id),
+  ]);
+  if (e1 || e2) {
+    await logError({
+      operation: "reorderVideo",
+      surface: "admin",
+      error: e1 ?? e2,
+      context: { videoId: id, waveId },
+    });
+    return { error: strings.wavesVideoSaveFailed };
+  }
+
+  revalidatePath(wavePath(waveId));
+  return { saved: true };
+}
+
+export async function removeVideo(
+  _prev: VideoState,
+  formData: FormData
+): Promise<VideoState> {
+  const gate = await adminClient();
+  if (!gate) return { error: strings.wavesForbidden };
+  const { supabase } = gate;
+
+  const id = formData.get("id");
+  const waveId = formData.get("wave_id");
+  if (typeof id !== "string" || !id || typeof waveId !== "string" || !waveId)
+    return { error: strings.wavesVideoSaveFailed };
+
+  const { error } = await supabase.from("wave_videos").delete().eq("id", id);
+  if (error) {
+    await logError({
+      operation: "removeVideo",
+      surface: "admin",
+      error,
+      context: { videoId: id, waveId },
+    });
+    return { error: strings.wavesVideoSaveFailed };
+  }
 
   revalidatePath(wavePath(waveId));
   return { saved: true };

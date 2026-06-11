@@ -88,6 +88,7 @@ const EXISTING = {
           submissions: [],
         },
       ],
+      videos: [],
     },
   ],
 };

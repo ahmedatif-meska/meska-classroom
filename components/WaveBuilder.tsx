@@ -12,6 +12,10 @@ import {
   removeMaterial,
   addAssignment,
   removeAssignment,
+  addVideo,
+  updateVideo,
+  reorderVideo,
+  removeVideo,
 } from "@/app/admin/waves/actions";
 import {
   validateWaveFields,
@@ -19,6 +23,7 @@ import {
   extensionForType,
   WAVE_TYPES,
 } from "@/lib/waves/validation";
+import { parseDriveFileId, driveWatchUrl } from "@/lib/waves/video";
 import {
   MATERIALS_BUCKET,
   materialPath,
@@ -49,12 +54,21 @@ type DraftFile = {
   existingId?: string;
   url?: string | null;
 };
+type DraftVideo = {
+  key: string;
+  title: string;
+  link: string;
+  saved: boolean;
+  /** Present ⇒ a persisted row (immediate edit / reorder / remove). */
+  existingId?: string;
+};
 type DraftWeek = {
   key: string;
   title: string;
   description: string;
   materials: DraftFile[];
   assignments: DraftFile[];
+  videos: DraftVideo[];
   savedId: string | null;
   existingId?: string;
 };
@@ -102,6 +116,9 @@ const ICONS = {
   plus: "M12 4v16m8-8H4",
   x: "M6 18L18 6M6 6l12 12",
   play: "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z|M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+  edit: "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5|M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
+  chevronUp: "M5 15l7-7 7 7",
+  chevronDown: "M19 9l-7 7-7-7",
 } as const;
 
 const TYPE_LABELS: Record<(typeof WAVE_TYPES)[number], string> = {
@@ -121,6 +138,7 @@ const newWeek = (): DraftWeek => ({
   description: "",
   materials: [],
   assignments: [],
+  videos: [],
   savedId: null,
 });
 
@@ -147,6 +165,15 @@ const seedWeeks = (ws: AdminWeek[]): DraftWeek[] =>
       file: null,
       saved: true,
       url: a.url,
+    })),
+    // Seed the link from the stored file id (a watch URL round-trips back to the
+    // same id through parseDriveFileId, so editing keeps working).
+    videos: w.videos.map((v) => ({
+      key: v.id,
+      existingId: v.id,
+      title: v.title,
+      link: driveWatchUrl(v.driveFileId),
+      saved: true,
     })),
   }));
 
@@ -271,72 +298,221 @@ function FileSection({
   );
 }
 
-/**
- * Video Links — VISUAL PLACEHOLDER ONLY. There is no backend for video links
- * (no column/table/action), so entries live in local state and are intentionally
- * NOT persisted on Save. Wiring real persistence needs a migration + action.
- */
-function VideoLinksSection() {
-  const [url, setUrl] = useState("");
-  const [links, setLinks] = useState<string[]>([]);
+type AddResult = { ok: true } | { ok: false; error: string };
 
-  const add = () => {
-    const v = url.trim();
-    if (!v) return;
-    setLinks((ls) => [...ls, v]);
-    setUrl("");
+/**
+ * Google Drive videos for one week. New videos are added to the local draft and
+ * persisted on the wave Save (like materials); already-saved videos (existingId)
+ * support immediate edit / reorder / remove. The admin pastes a Drive share link;
+ * we store only the extracted file id (handled server-side).
+ */
+function VideosSection({
+  videos,
+  onAdd,
+  onRemove,
+  onEdit,
+  onMove,
+}: {
+  videos: DraftVideo[];
+  onAdd: (title: string, link: string) => AddResult;
+  onRemove: (video: DraftVideo) => void;
+  onEdit: (video: DraftVideo, title: string, link: string) => AddResult;
+  onMove: (video: DraftVideo, direction: "up" | "down") => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [link, setLink] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editLink, setEditLink] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const submit = () => {
+    const r = onAdd(title, link);
+    if (!r.ok) {
+      setError(r.error);
+      return;
+    }
+    setTitle("");
+    setLink("");
+    setError(null);
+  };
+
+  const startEdit = (v: DraftVideo) => {
+    setEditingKey(v.key);
+    setEditTitle(v.title);
+    setEditLink(v.link);
+    setEditError(null);
+  };
+  const submitEdit = (v: DraftVideo) => {
+    const r = onEdit(v, editTitle, editLink);
+    if (!r.ok) {
+      setEditError(r.error);
+      return;
+    }
+    setEditingKey(null);
   };
 
   return (
     <div className="space-y-3">
-      <label className={labelClass} htmlFor="video-url">
-        {strings.videoLinksLabel}
-      </label>
-      <div className="flex gap-2">
-        <input
-          id="video-url"
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder={strings.videoLinkPlaceholder}
-          className="flex-grow rounded-lg border-0 bg-slate-100 px-4 py-2 text-sm text-ink placeholder:text-slate-400 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        />
-        <button
-          type="button"
-          onClick={add}
-          className="rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 active:scale-95"
-        >
-          {strings.videoAddLabel}
-        </button>
-      </div>
-      {links.length > 0 ? (
+      <label className={labelClass}>{strings.wavesVideosLabel}</label>
+
+      {videos.length === 0 ? (
+        <p className="text-sm text-slate-400">{strings.wavesVideosEmptyNote}</p>
+      ) : (
         <ul className="space-y-2">
-          {links.map((link, i) => (
-            <li
-              key={`${link}-${i}`}
-              className="flex items-center gap-2 rounded-lg border border-brand/10 bg-brand/5 p-2.5 text-xs text-brand"
-            >
-              <Icon d={ICONS.play} className="h-4 w-4 shrink-0" />
-              <span className="flex-grow truncate font-medium">{link}</span>
-              <button
-                type="button"
-                onClick={() => setLinks((ls) => ls.filter((_, j) => j !== i))}
-                aria-label={strings.videoRemoveLabel}
-                title={strings.videoRemoveLabel}
-                className="shrink-0 text-slate-500 transition-colors hover:text-red-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          {videos.map((v, i) => {
+            const fileId = parseDriveFileId(v.link);
+            const openUrl = fileId ? driveWatchUrl(fileId) : v.link;
+            const editable = Boolean(v.existingId);
+            return (
+              <li
+                key={v.key}
+                className="rounded-lg border border-brand/10 bg-brand/5 p-2.5"
               >
-                <Icon d={ICONS.x} className="h-3.5 w-3.5" />
-              </button>
-            </li>
-          ))}
+                {editingKey === v.key ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder={strings.wavesVideoTitlePlaceholder}
+                      aria-label={strings.wavesVideoTitlePlaceholder}
+                      className="w-full rounded-lg border-0 bg-surface px-3 py-2 text-base text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    />
+                    <input
+                      type="url"
+                      value={editLink}
+                      onChange={(e) => setEditLink(e.target.value)}
+                      placeholder={strings.wavesVideoLinkPlaceholder}
+                      aria-label={strings.wavesVideoLinkPlaceholder}
+                      className="w-full rounded-lg border-0 bg-surface px-3 py-2 text-base text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    />
+                    {editError ? (
+                      <p role="alert" className="text-xs font-medium text-red-700">
+                        {editError}
+                      </p>
+                    ) : null}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => submitEdit(v)}
+                        className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                      >
+                        {strings.weekSaveLabel}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingKey(null)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                      >
+                        {strings.cancelLabel}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-brand">
+                    <Icon d={ICONS.play} className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 flex-grow truncate font-medium text-ink">
+                      {v.title}
+                    </span>
+                    <a
+                      href={openUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 font-semibold text-brand hover:underline"
+                    >
+                      {strings.studentVideoOpenInDrive}
+                    </a>
+                    {editable ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onMove(v, "up")}
+                          disabled={i === 0}
+                          aria-label={strings.wavesVideoMoveUpLabel}
+                          title={strings.wavesVideoMoveUpLabel}
+                          className="shrink-0 rounded-full p-1 text-slate-500 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-30"
+                        >
+                          <Icon d={ICONS.chevronUp} className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onMove(v, "down")}
+                          disabled={i === videos.length - 1}
+                          aria-label={strings.wavesVideoMoveDownLabel}
+                          title={strings.wavesVideoMoveDownLabel}
+                          className="shrink-0 rounded-full p-1 text-slate-500 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-30"
+                        >
+                          <Icon d={ICONS.chevronDown} className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(v)}
+                          aria-label={strings.weekSaveLabel}
+                          title={strings.weekSaveLabel}
+                          className="shrink-0 rounded-full p-1 text-slate-500 hover:text-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        >
+                          <Icon d={ICONS.edit} className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => onRemove(v)}
+                      aria-label={strings.wavesVideoRemoveLabel}
+                      title={strings.wavesVideoRemoveLabel}
+                      className="shrink-0 rounded-full p-1 text-slate-500 transition-colors hover:text-red-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    >
+                      <Icon d={ICONS.x} className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder={strings.wavesVideoTitlePlaceholder}
+          aria-label={strings.wavesVideoTitlePlaceholder}
+          className="w-full rounded-lg border-0 bg-slate-100 px-4 py-2 text-base text-ink placeholder:text-slate-400 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        />
+        <div className="flex gap-2">
+          <input
+            type="url"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder={strings.wavesVideoLinkPlaceholder}
+            aria-label={strings.wavesVideoLinkPlaceholder}
+            className="flex-grow rounded-lg border-0 bg-slate-100 px-4 py-2 text-base text-ink placeholder:text-slate-400 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          />
+          <button
+            type="button"
+            onClick={submit}
+            className="shrink-0 rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            {strings.wavesVideoAddLabel}
+          </button>
+        </div>
+      </div>
+      {error ? (
+        <p role="alert" className="text-xs font-medium text-red-700">
+          {error}
+        </p>
       ) : null}
+      <p className="text-xs text-slate-500">{strings.wavesVideoLinkHelp}</p>
     </div>
   );
 }
@@ -398,6 +574,82 @@ export default function WaveBuilder({
     });
   };
 
+  // --- videos (text links; new ones persist on Save, saved ones act now) -----
+  const addVideoDraft =
+    (week: DraftWeek) =>
+    (title: string, link: string): AddResult => {
+      const t = title.trim();
+      if (!t) return { ok: false, error: strings.wavesVideoTitleRequired };
+      if (!parseDriveFileId(link))
+        return { ok: false, error: strings.wavesVideoLinkInvalid };
+      patchWeek(week.key, {
+        videos: [
+          ...week.videos,
+          { key: crypto.randomUUID(), title: t, link: link.trim(), saved: false },
+        ],
+      });
+      return { ok: true };
+    };
+
+  const removeVideoRow = async (week: DraftWeek, video: DraftVideo) => {
+    if (video.existingId) {
+      const fd = new FormData();
+      fd.set("id", video.existingId);
+      fd.set("wave_id", waveIdRef.current ?? "");
+      const r = await removeVideo({}, fd);
+      if (!r.saved) return setError(r.error ?? strings.wavesVideoSaveFailed);
+    }
+    patchWeek(week.key, {
+      videos: week.videos.filter((x) => x.key !== video.key),
+    });
+  };
+
+  const editVideoRow =
+    (week: DraftWeek) =>
+    (video: DraftVideo, title: string, link: string): AddResult => {
+      const t = title.trim();
+      if (!t) return { ok: false, error: strings.wavesVideoTitleRequired };
+      if (!parseDriveFileId(link))
+        return { ok: false, error: strings.wavesVideoLinkInvalid };
+      if (video.existingId) {
+        const fd = new FormData();
+        fd.set("id", video.existingId);
+        fd.set("wave_id", waveIdRef.current ?? "");
+        fd.set("title", t);
+        fd.set("drive_link", link);
+        void updateVideo({}, fd).then((r) => {
+          if (!r.saved) setError(r.error ?? strings.wavesVideoSaveFailed);
+        });
+      }
+      patchWeek(week.key, {
+        videos: week.videos.map((x) =>
+          x.key === video.key ? { ...x, title: t, link: link.trim() } : x
+        ),
+      });
+      return { ok: true };
+    };
+
+  const moveVideoRow =
+    (week: DraftWeek) => (video: DraftVideo, direction: "up" | "down") => {
+      const list = week.videos;
+      const idx = list.findIndex((x) => x.key === video.key);
+      const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= list.length) return;
+      if (video.existingId) {
+        const fd = new FormData();
+        fd.set("id", video.existingId);
+        fd.set("wave_id", waveIdRef.current ?? "");
+        fd.set("week_id", week.savedId ?? "");
+        fd.set("direction", direction);
+        void reorderVideo({}, fd).then((r) => {
+          if (!r.saved) setError(r.error ?? strings.wavesVideoSaveFailed);
+        });
+      }
+      const next = [...list];
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      patchWeek(week.key, { videos: next });
+    };
+
   // --- batched, resumable Save ----------------------------------------------
   const handleSave = async () => {
     const pre = validateWaveFields(name, type);
@@ -438,6 +690,7 @@ export default function WaveBuilder({
         ...w,
         materials: w.materials.map((m) => ({ ...m })),
         assignments: w.assignments.map((a) => ({ ...a })),
+        videos: w.videos.map((v) => ({ ...v })),
       }));
 
       const supabase = createClient();
@@ -527,6 +780,25 @@ export default function WaveBuilder({
           if (!ares.saved)
             return fail(ares.error ?? strings.wavesAssignmentSaveFailed, working);
           a.saved = true;
+        }
+
+        // Videos: persist each new draft (title + Drive link). No file upload —
+        // the server extracts and stores only the Drive file id.
+        for (const v of week.videos) {
+          if (v.existingId || v.saved) continue;
+          if (!v.title.trim())
+            return fail(strings.wavesVideoTitleRequired, working);
+          if (!parseDriveFileId(v.link))
+            return fail(strings.wavesVideoLinkInvalid, working);
+          const vfd = new FormData();
+          vfd.set("wave_id", waveId);
+          vfd.set("week_id", week.savedId);
+          vfd.set("title", v.title);
+          vfd.set("drive_link", v.link);
+          const vres = await addVideo({}, vfd);
+          if (!vres.saved)
+            return fail(vres.error ?? strings.wavesVideoSaveFailed, working);
+          v.saved = true;
         }
       }
 
@@ -701,7 +973,13 @@ export default function WaveBuilder({
                   }
                 />
 
-                <VideoLinksSection />
+                <VideosSection
+                  videos={week.videos}
+                  onAdd={addVideoDraft(week)}
+                  onRemove={(v) => void removeVideoRow(week, v)}
+                  onEdit={editVideoRow(week)}
+                  onMove={moveVideoRow(week)}
+                />
               </div>
             </section>
           ))

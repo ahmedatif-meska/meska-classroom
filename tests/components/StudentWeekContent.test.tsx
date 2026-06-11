@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import strings from "@/lib/strings";
 
 // SubmitAssignment is a client island with its own deps — stub it here.
@@ -30,6 +30,7 @@ let assignments: {
   due_at: string | null;
 }[] = [];
 let submissions: { assignment_id: string }[] = [];
+let videos: { id: string; title: string; drive_file_id: string }[] = [];
 // Signed URL: null simulates a foreign / unauthorized path (no download link).
 let signUrl: string | null = "https://files.test/signed";
 
@@ -37,6 +38,7 @@ const from = vi.fn((table: string) => {
   if (table === "wave_materials") return makeBuilder({ list: materials });
   if (table === "wave_assignments") return makeBuilder({ list: assignments });
   if (table === "wave_submissions") return makeBuilder({ list: submissions });
+  if (table === "wave_videos") return makeBuilder({ list: videos });
   return makeBuilder({ list: [] });
 });
 
@@ -64,8 +66,12 @@ beforeEach(() => {
   materials = [];
   assignments = [];
   submissions = [];
+  videos = [];
   signUrl = "https://files.test/signed";
 });
+
+const ID = "1A2b3C4d5E6f7G8h9I0jKlMnOpQrStUvW";
+const ID2 = "9Z8y7X6w5V4u3T2s1R0qPoNmLkJiHgFeD";
 
 describe("StudentWeekContent", () => {
   it("renders the week title and the Resources & Assignments disclosures", async () => {
@@ -124,6 +130,52 @@ describe("StudentWeekContent", () => {
     expect(screen.getByText(strings.studentWeekNoMaterials)).toBeInTheDocument();
     expect(
       screen.getByText(strings.studentWeekNoAssignments)
+    ).toBeInTheDocument();
+  });
+
+  it("renders each video's title + play button in order, with no iframe before play", async () => {
+    videos = [
+      { id: "v1", title: "Lesson 1", drive_file_id: ID },
+      { id: "v2", title: "Lesson 2", drive_file_id: ID2 },
+    ];
+    const { container } = render(
+      await StudentWeekContent({ tenantId: "wave-A", week, studentId: "stu1" })
+    );
+    expect(screen.getByText("Lesson 1")).toBeInTheDocument();
+    expect(screen.getByText("Lesson 2")).toBeInTheDocument();
+    const play1 = screen.getByRole("button", {
+      name: `${strings.studentVideoPlayLabel}: Lesson 1`,
+    });
+    expect(play1).toBeInTheDocument();
+    // Click-to-load façade: no third-party iframe is mounted until play.
+    expect(container.querySelector("iframe")).toBeNull();
+  });
+
+  it("mounts the Drive /preview iframe only after pressing play", async () => {
+    videos = [{ id: "v1", title: "Lesson 1", drive_file_id: ID }];
+    const { container } = render(
+      await StudentWeekContent({ tenantId: "wave-A", week, studentId: "stu1" })
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${strings.studentVideoPlayLabel}: Lesson 1`,
+      })
+    );
+    const iframe = container.querySelector("iframe");
+    expect(iframe).not.toBeNull();
+    expect(iframe?.getAttribute("src")).toBe(
+      `https://drive.google.com/file/d/${ID}/preview`
+    );
+  });
+
+  it("shows the videos empty state while Resources/Assignments still render", async () => {
+    render(
+      await StudentWeekContent({ tenantId: "wave-A", week, studentId: "stu1" })
+    );
+    expect(screen.getByText(strings.studentWeekNoVideos)).toBeInTheDocument();
+    expect(screen.getByText(strings.studentResourcesLabel)).toBeInTheDocument();
+    expect(
+      screen.getByText(strings.studentAssignmentsLabel)
     ).toBeInTheDocument();
   });
 });

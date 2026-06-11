@@ -83,10 +83,23 @@ describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
       week_id: week!.id,
       title: "Task 1",
     });
+    // A Google Drive video (feature 011) — same wave-isolation boundary.
+    await admin.from("wave_videos").insert({
+      tenant_id: t!.id,
+      week_id: week!.id,
+      title: "Lesson 1",
+      drive_file_id: "1A2b3C4d5E6f7G8h9I0jKlMnOpQrStUvW",
+      position: 1,
+    });
 
     // Anon (no tenant claim) is denied every wave-scoped table → zero rows.
     const anon = createClient(url!, anonKey!);
-    for (const table of ["wave_weeks", "wave_materials", "wave_assignments"]) {
+    for (const table of [
+      "wave_weeks",
+      "wave_materials",
+      "wave_assignments",
+      "wave_videos",
+    ]) {
       const { data } = await anon.from(table).select("id");
       expect(data ?? []).toHaveLength(0);
     }

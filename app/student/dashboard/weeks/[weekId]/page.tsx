@@ -53,12 +53,23 @@ export default async function StudentWeekPage({
       activeHref={`/student/dashboard/weeks/${weekId}`}
       footer={<StudentSidebarFooter name={displayName} />}
     >
-      <div className="p-8">
-        <StudentWeekContent
-          tenantId={tenantId}
-          week={week as Week}
-          studentId={student.id}
-        />
+      <div className="relative min-h-full overflow-hidden">
+        {/* Ambient decorative backdrop — purely cosmetic, never interactive. */}
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          aria-hidden="true"
+        >
+          <div className="absolute -right-12 top-0 h-72 w-72 rounded-full bg-brand opacity-10 blur-[100px]" />
+          <div className="absolute -left-12 bottom-0 h-72 w-72 rounded-full bg-brand opacity-10 blur-[100px]" />
+        </div>
+
+        <div className="relative z-10 w-full max-w-2xl px-4 py-8 sm:px-6">
+          <StudentWeekContent
+            tenantId={tenantId}
+            week={week as Week}
+            studentId={student.id}
+          />
+        </div>
       </div>
     </DashboardShell>
   );

@@ -54,8 +54,9 @@ describe("Student Home — wave label & description (US1.1)", () => {
     waveRow = { name: "July", description_html: "<p>Welcome to July</p>" };
     render(await StudentDashboard());
     expect(
-      screen.getByText(`${strings.studentHomeWaveLabelPrefix}July`)
+      screen.getByText(strings.studentHomeCurrentWaveLabel)
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "July" })).toBeInTheDocument();
     expect(screen.getByText("Welcome to July")).toBeInTheDocument();
   });
 

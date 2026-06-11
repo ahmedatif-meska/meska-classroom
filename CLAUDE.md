@@ -150,7 +150,7 @@ These are working if: fewer unnecessary changes in diffs, fewer rewrites from ov
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, shell commands,
 and other important information, read the current plan at
-`specs/010-student-home-weeks/plan.md` (and its `research.md`, `data-model.md`,
+`specs/011-video-resources/plan.md` (and its `research.md`, `data-model.md`,
 `contracts/ui-contracts.md`, `quickstart.md`).
 
 Each feature directory under `specs/` holds its own `plan.md`, `research.md`,
@@ -160,6 +160,8 @@ persistent sessions) and 008 (wave management) are merged; 009 (error logging �
 central `error_logs` table capturing every unexpected error, admin-only viewing)
 is merged; 010 (student Home & Weeks navigation — rename Dashboard→Home with a
 personalized greeting, a collapsible Weeks sidebar surfacing each week's Resources
-and Assignments, and instructors shown on Home) is merged. No feature branch is
-currently active.
+and Assignments, and instructors shown on Home) is merged. Active feature branch:
+`011-video-resources` (admin attaches Google-Drive-hosted videos to a wave's week
+via a shared link; students play them inline on the week page — a new
+`wave_videos` content type storing a Drive file id, no Storage upload).
 <!-- SPECKIT END -->

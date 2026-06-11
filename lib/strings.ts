@@ -398,11 +398,26 @@ const strings = {
   wavesAssignmentSaveFailed:
     "The assignment couldn't be saved. Please try again.",
 
-  // Admin — Waves (video links — visual placeholder, not yet persisted)
-  videoLinksLabel: "Video Links",
-  videoLinkPlaceholder: "Paste YouTube or Vimeo URL",
-  videoAddLabel: "Add",
-  videoRemoveLabel: "Remove video link",
+  // Admin — Waves (Google Drive videos)
+  wavesVideosLabel: "Videos",
+  wavesVideoTitlePlaceholder: "Video title",
+  wavesVideoLinkPlaceholder: "Paste Google Drive share link",
+  wavesVideoLinkHelp:
+    "Paste the Google Drive share link. Set the file's sharing to 'Anyone with the link can view' so students can watch.",
+  wavesVideoAddLabel: "Add video",
+  wavesVideoRemoveLabel: "Remove video",
+  wavesVideoMoveUpLabel: "Move up",
+  wavesVideoMoveDownLabel: "Move down",
+  wavesVideosEmptyNote: "No videos",
+  wavesVideoTitleRequired: "A video title is required.",
+  wavesVideoLinkInvalid: "Enter a valid Google Drive share link.",
+  wavesVideoSaveFailed: "The video couldn't be saved. Please try again.",
+
+  // Student — week videos
+  studentVideosLabel: "Videos",
+  studentWeekNoVideos: "No videos for this week yet.",
+  studentVideoPlayLabel: "Play",
+  studentVideoOpenInDrive: "Open in Google Drive",
 
   // Admin — Error log (list)
   errorsNavLabel: "Errors",
@@ -438,12 +453,18 @@ const strings = {
   studentHomeNavLabel: "Home",
   studentWeeksNavLabel: "Weeks",
   studentWeeksEmptyNote: "No weeks yet",
-  studentHomeGreetingPrefix: "Welcome ",
-  studentHomeGreetingSuffix: " 👋",
+  studentHomeGreetingPrefix: "Welcome back, ",
+  studentHomeGreetingSuffix: "! 👋",
+  studentHomeWelcomeSubtitle: "Stay up to date with your learning journey.",
   studentHomeWaveLabelPrefix: "You are in ",
+  studentHomeCurrentWaveLabel: "Current Wave",
   studentNoWaveNote: "You're not in a wave yet.",
-  studentInstructorsTitle: "About instructors",
+  studentRewardsTitle: "My Rewards",
+  studentRewardsPoints: "1,250 Points",
+  studentInstructorsTitle: "About your instructors",
   studentInstructorsEmptyNote: "No instructors have been added yet.",
+  studentInstructorsViewAllLabel: "View All",
+  studentInstructorsShowLessLabel: "Show less",
 
   // Student — wave content (dashboard)
   studentWaveSectionTitle: "Your wave",
@@ -452,6 +473,7 @@ const strings = {
   studentWeekNoMaterials: "No resources for this week yet.",
   studentWeekNoAssignments: "No assignments for this week yet.",
   studentMaterialsLabel: "Materials",
+  studentResourcesFilesLabel: "Files",
   studentAssignmentsLabel: "Assignments",
   studentDueLabel: "Due",
   studentSubmitLabel: "Upload submission",
@@ -464,6 +486,17 @@ const strings = {
   studentSubmissionFailed:
     "Your submission couldn't be uploaded. Please try again.",
   studentForbidden: "You don't have permission to do that.",
+
+  // Student — week feedback (rating; UI-only for now, not persisted)
+  studentFeedbackTitle: "Give Feedback",
+  studentFeedbackIntro:
+    "How was this week's content? Share your thoughts to help us improve the curriculum.",
+  studentFeedbackSessionLabel: "Rate this session",
+  studentFeedbackInstructorLabel: "Rate your instructor",
+  studentFeedbackStarsUnit: "stars",
+  studentFeedbackCommentPlaceholder: "Type your feedback here…",
+  studentFeedbackSubmitLabel: "Submit Feedback",
+  studentFeedbackThanks: "Thanks for your feedback!",
 
   // Student — sign in (email + password)
   studentSignInSubtitle:
@@ -488,7 +521,7 @@ const strings = {
   studentResetLinkInvalid: "This link is invalid or has expired.",
 
   // Student — home QR
-  studentQrTitle: "Your QR code",
+  studentQrTitle: "Check-in",
   studentQrSubtitle: "Show this at check-in.",
   studentQrAlt: "Your member QR code",
   studentQrPlaceholder: "Your QR code isn't ready yet.",
