@@ -140,7 +140,10 @@ export default async function StudentDashboard() {
               {strings.dashboardEmptyNote}
             </p>
           )}
-          {student && tenantId ? (
+          {/* Only render wave content for a LIVE wave (the tenants row resolved).
+              An unassigned member's claim may still point at a deleted wave — they
+              keep their QR below, but there is no wave content to query. */}
+          {student && tenantId && wave ? (
             <StudentWaveContent tenantId={tenantId} studentId={student.id} />
           ) : null}
         </section>
