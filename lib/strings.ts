@@ -379,6 +379,36 @@ const strings = {
   wavesAssignmentSaveFailed:
     "The assignment couldn't be saved. Please try again.",
 
+  // Admin — Error log (list)
+  errorsNavLabel: "Errors",
+  errorLogTitle: "Errors",
+  errorLogSubtitle: "Unexpected errors recorded across the app",
+  errorLogEmptyNote: "No errors recorded",
+  errorLogColTime: "Time",
+  errorLogColSeverity: "Severity",
+  errorLogColSurface: "Surface",
+  errorLogColOrigin: "Origin",
+  errorLogColOperation: "Operation",
+  errorLogColMessage: "Message",
+  errorLogColUser: "User",
+  errorLogAnonymous: "Anonymous",
+  errorLogViewLabel: "View",
+  errorLogNewerLabel: "Newer",
+  errorLogOlderLabel: "Older",
+
+  // Admin — Error log (detail)
+  errorLogDetailTitle: "Error detail",
+  errorLogDetailBackLabel: "Back to errors",
+  errorLogMessageLabel: "Message",
+  errorLogStackLabel: "Stack trace",
+  errorLogContextLabel: "Context",
+  errorLogUserLabel: "User",
+  errorLogRoleLabel: "Role",
+  errorLogWaveLabel: "Wave",
+  errorLogEnvironmentLabel: "Environment",
+  errorLogNoStack: "No stack trace captured",
+  errorLogNoContext: "No context captured",
+
   // Student — wave content (dashboard)
   studentWaveSectionTitle: "Your wave",
   studentWaveNoContent: "No content has been added to your wave yet.",

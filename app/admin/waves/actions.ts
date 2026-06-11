@@ -9,6 +9,7 @@ import {
 } from "@/lib/waves/validation";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
 import { MATERIALS_BUCKET, SUBMISSIONS_BUCKET } from "@/lib/waves/files";
+import { logError } from "@/lib/errors/log";
 import { invalidate } from "@/lib/cache/redis";
 import { adminListKey, studentKey } from "@/lib/cache/keys";
 import { type WaveRow } from "@/lib/waves/content";
@@ -80,7 +81,14 @@ export async function createWave(
     })
     .select("id, name, description_html, type, created_at")
     .single();
-  if (error || !data) return { error: strings.wavesSaveFailed };
+  if (error || !data) {
+    await logError({
+      operation: "createWave",
+      surface: "admin",
+      error: error ?? "insert returned no row",
+    });
+    return { error: strings.wavesSaveFailed };
+  }
 
   revalidatePath(LIST_PATH);
   await invalidate(adminListKey("waves"));
@@ -112,7 +120,15 @@ export async function updateWave(
         sanitizeDescription(formData.get("description_html")) || null,
     })
     .eq("id", id);
-  if (error) return { error: strings.wavesSaveFailed };
+  if (error) {
+    await logError({
+      operation: "updateWave",
+      surface: "admin",
+      error,
+      context: { waveId: id },
+    });
+    return { error: strings.wavesSaveFailed };
+  }
 
   revalidatePath(LIST_PATH);
   revalidatePath(wavePath(id));
@@ -148,7 +164,15 @@ export async function deleteWave(
     ]);
 
   const { error } = await supabase.from("tenants").delete().eq("id", id);
-  if (error) return { error: strings.wavesRemoveFailed };
+  if (error) {
+    await logError({
+      operation: "deleteWave",
+      surface: "admin",
+      error,
+      context: { waveId: id },
+    });
+    return { error: strings.wavesRemoveFailed };
+  }
 
   // Materials AND assignment files share the materials bucket.
   await removeObjects(supabase, MATERIALS_BUCKET, [
@@ -209,7 +233,15 @@ export async function addWeek(
     })
     .select("id")
     .single();
-  if (error || !data) return { error: strings.wavesWeekSaveFailed };
+  if (error || !data) {
+    await logError({
+      operation: "addWeek",
+      surface: "admin",
+      error: error ?? "insert returned no row",
+      context: { waveId },
+    });
+    return { error: strings.wavesWeekSaveFailed };
+  }
 
   revalidatePath(wavePath(waveId));
   // Return the new week's id so the one-page builder can attach this week's
@@ -239,7 +271,15 @@ export async function updateWeek(
         sanitizeDescription(formData.get("description_html")) || null,
     })
     .eq("id", id);
-  if (error) return { error: strings.wavesWeekSaveFailed };
+  if (error) {
+    await logError({
+      operation: "updateWeek",
+      surface: "admin",
+      error,
+      context: { weekId: id, waveId },
+    });
+    return { error: strings.wavesWeekSaveFailed };
+  }
 
   revalidatePath(wavePath(waveId));
   return { saved: true };
@@ -278,7 +318,15 @@ export async function removeWeek(
   }
 
   const { error } = await supabase.from("wave_weeks").delete().eq("id", id);
-  if (error) return { error: strings.wavesWeekSaveFailed };
+  if (error) {
+    await logError({
+      operation: "removeWeek",
+      surface: "admin",
+      error,
+      context: { weekId: id, waveId },
+    });
+    return { error: strings.wavesWeekSaveFailed };
+  }
 
   // Materials AND assignment files both live in the materials bucket.
   await removeObjects(supabase, MATERIALS_BUCKET, [
@@ -335,6 +383,12 @@ export async function addMaterial(
     file_path: filePath,
   });
   if (error) {
+    await logError({
+      operation: "addMaterial",
+      surface: "admin",
+      error,
+      context: { waveId, weekId },
+    });
     await removeObjects(supabase, MATERIALS_BUCKET, [filePath]);
     return { error: strings.wavesMaterialSaveFailed };
   }
@@ -363,7 +417,15 @@ export async function removeMaterial(
     .maybeSingle();
 
   const { error } = await supabase.from("wave_materials").delete().eq("id", id);
-  if (error) return { error: strings.wavesMaterialSaveFailed };
+  if (error) {
+    await logError({
+      operation: "removeMaterial",
+      surface: "admin",
+      error,
+      context: { materialId: id, waveId },
+    });
+    return { error: strings.wavesMaterialSaveFailed };
+  }
 
   await removeObjects(supabase, MATERIALS_BUCKET, [existing?.file_path]);
 
@@ -421,6 +483,12 @@ export async function addAssignment(
     file_path: filePath,
   });
   if (error) {
+    await logError({
+      operation: "addAssignment",
+      surface: "admin",
+      error,
+      context: { waveId, weekId },
+    });
     await removeObjects(supabase, MATERIALS_BUCKET, [filePath]);
     return { error: strings.wavesAssignmentSaveFailed };
   }
@@ -460,7 +528,15 @@ export async function updateAssignment(
       due_at: parseDueAt(formData.get("due_at")),
     })
     .eq("id", id);
-  if (error) return { error: strings.wavesAssignmentSaveFailed };
+  if (error) {
+    await logError({
+      operation: "updateAssignment",
+      surface: "admin",
+      error,
+      context: { assignmentId: id, waveId },
+    });
+    return { error: strings.wavesAssignmentSaveFailed };
+  }
 
   revalidatePath(wavePath(waveId));
   return { saved: true };
@@ -488,7 +564,15 @@ export async function removeAssignment(
     .from("wave_assignments")
     .delete()
     .eq("id", id);
-  if (error) return { error: strings.wavesAssignmentSaveFailed };
+  if (error) {
+    await logError({
+      operation: "removeAssignment",
+      surface: "admin",
+      error,
+      context: { assignmentId: id, waveId },
+    });
+    return { error: strings.wavesAssignmentSaveFailed };
+  }
 
   // The assignment's own uploaded file lives in the materials bucket; student
   // submissions live in the submissions bucket. Clean up both (best-effort).

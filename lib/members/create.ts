@@ -1,5 +1,6 @@
 import { createClient as createSupabaseJsClient } from "@supabase/supabase-js";
 import type { createAdminClient } from "@/lib/supabase/admin";
+import { logError } from "@/lib/errors/log";
 import strings from "@/lib/strings";
 
 /**
@@ -45,6 +46,16 @@ export async function sendMemberMagicLink(email: string): Promise<boolean> {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/student/auth/confirm`,
     },
   });
+  if (error) {
+    // Recovered failure (the caller offers a re-send) — captured as a warning.
+    await logError({
+      operation: "sendMemberMagicLink",
+      surface: "admin",
+      severity: "warning",
+      error,
+      context: { email },
+    });
+  }
   return Boolean(error);
 }
 
@@ -68,6 +79,12 @@ export async function provisionMember(
     if (createErr && /already|exists|registered/i.test(createErr.message)) {
       return { ok: false, error: strings.memberMgmtEmailInUse };
     }
+    await logError({
+      operation: "provisionMember",
+      surface: "admin",
+      error: createErr ?? "createUser returned no user and no error",
+      context: { email, step: "createUser" },
+    });
     return { ok: false, error: strings.memberMgmtInviteFailed };
   }
 
@@ -80,7 +97,15 @@ export async function provisionMember(
     student_code: email, // satisfies the legacy NOT NULL / unique(tenant_id, student_code)
     status: "pending",
   });
-  if (insertErr) return { ok: false, error: strings.memberMgmtEmailInUse };
+  if (insertErr) {
+    await logError({
+      operation: "provisionMember",
+      surface: "admin",
+      error: insertErr,
+      context: { email, step: "studentsInsert" },
+    });
+    return { ok: false, error: strings.memberMgmtEmailInUse };
+  }
 
   const inviteFailed = await sendMemberMagicLink(email);
   return { ok: true, inviteFailed };

@@ -80,6 +80,7 @@ export const config = {
     "/admin/instructors/:path*",
     "/admin/waves/:path*",
     "/admin/members/:path*",
+    "/admin/errors/:path*",
     "/student/dashboard/:path*",
   ],
 };

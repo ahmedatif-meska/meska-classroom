@@ -98,12 +98,61 @@ describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
     expect((seen ?? []).length).toBeGreaterThan(0);
   });
 
-  afterAll(async () => {
-    if (!hasCreds || tenantIds.length === 0) return;
+  it("error_logs is admin-only and writable solely via log_error (feature 009, Principle VI)", async () => {
     const { createClient } = await import("@supabase/supabase-js");
     const admin = createClient(url!, serviceKey!, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
+    const anon = createClient(url!, anonKey!);
+
+    // Anon can record an entry through the RPC — the only write path…
+    const { error: rpcError } = await anon.rpc("log_error", {
+      p_surface: "student",
+      p_origin: "server",
+      p_severity: "error",
+      p_operation: "rls-test-error-logs",
+      p_message: "m".repeat(2500), // over the 2,000 bound — RPC must truncate
+      p_stack: null,
+      p_context: JSON.stringify({ probe: true }),
+      p_environment: "test",
+    });
+    expect(rpcError).toBeNull();
+
+    // …but cannot read anything back (admin-only SELECT) …
+    const { data: anonRead } = await anon.from("error_logs").select("id");
+    expect(anonRead ?? []).toHaveLength(0);
+
+    // …and cannot insert/update/delete directly (no write policies exist).
+    const { error: insertError } = await anon
+      .from("error_logs")
+      .insert({ operation: "rls-test-direct-insert" });
+    expect(insertError).not.toBeNull();
+
+    // The recorded row carries NULL (anonymous) attribution — identity comes
+    // from the JWT inside the RPC, never from parameters — and the message is
+    // truncated server-side to exactly 2,000 chars.
+    const { data: rows } = await admin
+      .from("error_logs")
+      .select("message, user_id, user_role, tenant_id")
+      .eq("operation", "rls-test-error-logs");
+    expect(rows).toHaveLength(1);
+    expect(rows![0].user_id).toBeNull();
+    expect(rows![0].user_role).toBeNull();
+    expect(rows![0].tenant_id).toBeNull();
+    expect(rows![0].message).toHaveLength(2000);
+  });
+
+  afterAll(async () => {
+    if (!hasCreds) return;
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(url!, serviceKey!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    await admin
+      .from("error_logs")
+      .delete()
+      .in("operation", ["rls-test-error-logs", "rls-test-direct-insert"]);
+    if (tenantIds.length === 0) return;
     await admin.from("students").delete().in("tenant_id", tenantIds);
     await admin.from("tenants").delete().in("id", tenantIds);
   });

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertStudentSession } from "@/lib/auth/studentGate";
 import { SUBMISSION_EXTENSIONS } from "@/lib/waves/validation";
 import { submissionPath } from "@/lib/waves/files";
+import { logError } from "@/lib/errors/log";
 import strings from "@/lib/strings";
 
 export type SubmissionState = { error?: string; saved?: boolean };
@@ -76,7 +77,15 @@ export async function submitAssignment(
     },
     { onConflict: "assignment_id,student_id" }
   );
-  if (error) return { error: strings.studentSubmissionFailed };
+  if (error) {
+    await logError({
+      operation: "submitAssignment",
+      surface: "student",
+      error,
+      context: { assignmentId },
+    });
+    return { error: strings.studentSubmissionFailed };
+  }
 
   revalidatePath("/student/dashboard");
   return { saved: true };

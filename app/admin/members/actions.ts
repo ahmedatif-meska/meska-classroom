@@ -7,6 +7,7 @@ import { assertAdminSession } from "@/lib/auth/adminGate";
 import { validateMemberFields } from "@/lib/members/validation";
 import { provisionMember, sendMemberMagicLink } from "@/lib/members/create";
 import { parseAndValidateMembersCsv } from "@/lib/members/csv";
+import { logError } from "@/lib/errors/log";
 import { invalidate } from "@/lib/cache/redis";
 import { adminListKey, studentKey } from "@/lib/cache/keys";
 import strings from "@/lib/strings";
@@ -171,10 +172,26 @@ export async function removeMember(
   if (target.user_id) {
     // Deleting the auth user cascades to the students row (user_id FK on delete).
     const { error } = await admin.auth.admin.deleteUser(target.user_id);
-    if (error) return { error: strings.removeMemberFailed };
+    if (error) {
+      await logError({
+        operation: "removeMember",
+        surface: "admin",
+        error,
+        context: { targetId, step: "deleteUser" },
+      });
+      return { error: strings.removeMemberFailed };
+    }
   } else {
     const { error } = await admin.from("students").delete().eq("id", targetId);
-    if (error) return { error: strings.removeMemberFailed };
+    if (error) {
+      await logError({
+        operation: "removeMember",
+        surface: "admin",
+        error,
+        context: { targetId, step: "studentsDelete" },
+      });
+      return { error: strings.removeMemberFailed };
+    }
   }
 
   await logEvent(supabase, target.email ?? "", "success", "member_removed");

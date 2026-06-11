@@ -9,6 +9,7 @@ import {
   extensionForType,
 } from "@/lib/instructors/validation";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
+import { logError } from "@/lib/errors/log";
 import { invalidate } from "@/lib/cache/redis";
 import { adminListKey } from "@/lib/cache/keys";
 import strings from "@/lib/strings";
@@ -32,7 +33,15 @@ async function uploadImage(
   const { error } = await supabase.storage
     .from(BUCKET)
     .upload(path, image, { contentType: image.type, upsert: false });
-  if (error) return { error: strings.instructorsImageUploadFailed };
+  if (error) {
+    await logError({
+      operation: "uploadInstructorImage",
+      surface: "admin",
+      error,
+      context: { contentType: image.type, size: image.size },
+    });
+    return { error: strings.instructorsImageUploadFailed };
+  }
   return { path };
 }
 
@@ -87,7 +96,10 @@ export async function createInstructor(
     description_html: descriptionHtml || null,
     image_path: imagePath,
   });
-  if (error) return { error: strings.instructorsSaveFailed };
+  if (error) {
+    await logError({ operation: "createInstructor", surface: "admin", error });
+    return { error: strings.instructorsSaveFailed };
+  }
 
   revalidatePath(LIST_PATH);
   await invalidate(adminListKey("instructors"));
@@ -150,7 +162,15 @@ export async function updateInstructor(
     .from("instructors")
     .update(update)
     .eq("id", id);
-  if (error) return { error: strings.instructorsSaveFailed };
+  if (error) {
+    await logError({
+      operation: "updateInstructor",
+      surface: "admin",
+      error,
+      context: { id },
+    });
+    return { error: strings.instructorsSaveFailed };
+  }
 
   revalidatePath(LIST_PATH);
   await invalidate(adminListKey("instructors"));
@@ -187,7 +207,15 @@ export async function removeInstructor(
     .maybeSingle();
 
   const { error } = await supabase.from("instructors").delete().eq("id", id);
-  if (error) return { error: strings.instructorsRemoveFailed };
+  if (error) {
+    await logError({
+      operation: "removeInstructor",
+      surface: "admin",
+      error,
+      context: { id },
+    });
+    return { error: strings.instructorsRemoveFailed };
+  }
 
   await removeImage(supabase, existing?.image_path);
 

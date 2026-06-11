@@ -36,6 +36,12 @@ vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({ auth: { signInWithOtp } })),
 }));
 
+// Error capture (feature 009) — assert WHEN it fires, never let it run for real.
+const logError = vi.fn(async () => {});
+vi.mock("@/lib/errors/log", () => ({
+  logError: (...args: unknown[]) => logError(...(args as [])),
+}));
+
 import { createMember } from "@/app/admin/members/actions";
 
 function form(
@@ -136,5 +142,63 @@ describe("createMember (US2.1)", () => {
     const result = await createMember({}, form("Mona", "+201", "m@x.com", "w1"));
     expect(result).toEqual({ error: strings.memberMgmtEmailInUse });
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("createMember error capture (009 US1.1)", () => {
+  it("logs the underlying failure when the Admin API createUser fails unexpectedly — same generic state as before", async () => {
+    createUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "unexpected 500 from auth", status: 500 },
+    });
+    const result = await createMember({}, form("Mona", "+201", "m@x.com", "w1"));
+    expect(result).toEqual({ error: strings.memberMgmtInviteFailed });
+    expect(logError).toHaveBeenCalledTimes(1);
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "provisionMember", surface: "admin" })
+    );
+  });
+
+  it("logs the underlying failure when the students insert fails — same generic state as before", async () => {
+    insert.mockResolvedValue({ error: { message: "insert exploded" } });
+    const result = await createMember({}, form("Mona", "+201", "m@x.com", "w1"));
+    expect(result).toEqual({ error: strings.memberMgmtEmailInUse });
+    expect(logError).toHaveBeenCalledTimes(1);
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({ operation: "provisionMember", surface: "admin" })
+    );
+  });
+
+  it("logs the recovered magic-link send failure as a warning", async () => {
+    signInWithOtp.mockResolvedValue({ error: { message: "smtp down" } });
+    const result = await createMember({}, form("Mona", "+201", "m@x.com", "w1"));
+    expect(result).toEqual({ created: true, inviteFailed: true });
+    expect(logError).toHaveBeenCalledTimes(1);
+    expect(logError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: "sendMemberMagicLink",
+        surface: "admin",
+        severity: "warning",
+      })
+    );
+  });
+
+  it("never logs by-design rejections: gate denial, validation, duplicate member", async () => {
+    currentUser = null;
+    await createMember({}, form("Mona", "+201", "m@x.com", "w1"));
+
+    currentUser = { id: "admin-id", app_metadata: { role: "admin" }, email: "a@x.com" };
+    await createMember({}, form("", "+201", "m@x.com", "w1"));
+
+    existingStudent = { id: "exists" };
+    await createMember({}, form("Mona", "+201", "dupe@x.com", "w1"));
+
+    expect(logError).not.toHaveBeenCalled();
+  });
+
+  it("does not log on the fully successful path", async () => {
+    const result = await createMember({}, form("Mona", "+201", "m@x.com", "w1"));
+    expect(result).toEqual({ created: true, inviteFailed: false });
+    expect(logError).not.toHaveBeenCalled();
   });
 });

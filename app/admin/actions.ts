@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertAdminSession, validateLoginFields } from "@/lib/auth/adminGate";
 import { validateEmailField, validateNewPassword } from "@/lib/auth/passwordReset";
 import { validateNewAdminFields } from "@/lib/auth/adminManagement";
+import { logError } from "@/lib/errors/log";
 import strings from "@/lib/strings";
 
 export type SignInState = { error?: string };
@@ -205,6 +206,7 @@ export async function updateAdminPassword(
     password: formData.get("password") as string,
   });
   if (error) {
+    await logError({ operation: "updateAdminPassword", surface: "admin", error });
     await logEvent(supabase, user!.email ?? "", "denied", "reset_invalid");
     return { error: strings.resetUpdateFailed };
   }
@@ -274,14 +276,28 @@ export async function createAdmin(
     if (inviteErr && /already|exists|registered/i.test(inviteErr.message)) {
       return { error: strings.adminMgmtEmailInUse };
     }
+    await logError({
+      operation: "createAdmin",
+      surface: "admin",
+      error: inviteErr ?? "inviteUserByEmail returned no user and no error",
+      context: { email, step: "invite" },
+    });
     return { error: strings.adminMgmtInviteFailed };
   }
 
   // app_metadata is not an invite option, so set the role claim immediately after
   // (research R1 — the gap is sub-second and entirely before any email arrives).
-  await admin.auth.admin.updateUserById(newUser.id, {
+  const { error: claimErr } = await admin.auth.admin.updateUserById(newUser.id, {
     app_metadata: { role: "admin" },
   });
+  if (claimErr) {
+    await logError({
+      operation: "createAdmin",
+      surface: "admin",
+      error: claimErr,
+      context: { email, step: "roleClaim" },
+    });
+  }
 
   const { error: insertErr } = await admin.from("admin_profiles").insert({
     id: newUser.id,
@@ -292,7 +308,15 @@ export async function createAdmin(
     role: "admin",
     status: "pending",
   });
-  if (insertErr) return { error: strings.adminMgmtEmailInUse };
+  if (insertErr) {
+    await logError({
+      operation: "createAdmin",
+      surface: "admin",
+      error: insertErr,
+      context: { email, step: "profileInsert" },
+    });
+    return { error: strings.adminMgmtEmailInUse };
+  }
 
   await logEvent(supabase, email, "success", "admin_created");
   revalidatePath(ADMIN_LIST_PATH);
@@ -339,7 +363,10 @@ export async function resendInvite(
   const { error } = await supabase.auth.resetPasswordForEmail(target.email, {
     redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/admin/auth/confirm`,
   });
-  if (error) return { error: strings.adminMgmtInviteFailed };
+  if (error) {
+    await logError({ operation: "resendInvite", surface: "admin", error });
+    return { error: strings.adminMgmtInviteFailed };
+  }
 
   await logEvent(supabase, target.email, "success", "admin_reinvited");
   revalidatePath(ADMIN_LIST_PATH);
@@ -390,7 +417,15 @@ export async function removeAdmin(
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.deleteUser(targetId);
-  if (error) return { error: strings.adminMgmtForbidden };
+  if (error) {
+    await logError({
+      operation: "removeAdmin",
+      surface: "admin",
+      error,
+      context: { targetId },
+    });
+    return { error: strings.adminMgmtForbidden };
+  }
 
   await logEvent(supabase, targetEmail, "success", "admin_removed");
   revalidatePath(ADMIN_LIST_PATH);

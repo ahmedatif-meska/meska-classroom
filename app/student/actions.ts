@@ -8,6 +8,7 @@ import {
   validateStudentLoginFields,
 } from "@/lib/auth/studentGate";
 import { validateNewPassword } from "@/lib/auth/passwordReset";
+import { logError } from "@/lib/errors/log";
 import strings from "@/lib/strings";
 
 export type StudentSignInState = { error?: string };
@@ -122,7 +123,10 @@ export async function setStudentPassword(
   const { error } = await supabase.auth.updateUser({
     password: formData.get("password") as string,
   });
-  if (error) return { error: strings.studentResetLinkInvalid };
+  if (error) {
+    await logError({ operation: "setStudentPassword", surface: "student", error });
+    return { error: strings.studentResetLinkInvalid };
+  }
 
   // The member has set their first password → active and able to sign in (FR-018).
   // Written with the service-role client because RLS does not let a student UPDATE

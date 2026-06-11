@@ -148,12 +148,13 @@ These are working if: fewer unnecessary changes in diffs, fewer rewrites from ov
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, shell commands,
 and other important information, read the current plan at
-`specs/008-wave-management/plan.md` (and its `research.md`, `data-model.md`,
-`contracts/wave-management-contracts.md`, `quickstart.md`).
+`specs/009-error-logging/plan.md` (and its `research.md`, `data-model.md`,
+`contracts/error-logging-contracts.md`, `quickstart.md`).
 
 Each feature directory under `specs/` holds its own `plan.md`, `research.md`,
 `data-model.md`, `contracts/`, `quickstart.md`, and per-phase `walkthrough.md`.
 Features 001–006 are implemented and merged to `main`; 007 (Redis caching &
-persistent sessions) is merged; 008 (wave management — create/edit/manage waves
-with weeks, materials, and assignment submissions) is the active feature branch.
+persistent sessions) and 008 (wave management) are merged; 009 (error logging —
+central `error_logs` table capturing every unexpected error, admin-only viewing)
+is the active feature branch.
 <!-- SPECKIT END -->
