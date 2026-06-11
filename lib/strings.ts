@@ -425,9 +425,23 @@ const strings = {
   errorLogNoStack: "No stack trace captured",
   errorLogNoContext: "No context captured",
 
+  // Student — Home (dashboard) & navigation
+  studentHomeNavLabel: "Home",
+  studentWeeksNavLabel: "Weeks",
+  studentWeeksEmptyNote: "No weeks yet",
+  studentHomeGreetingPrefix: "Welcome to ",
+  studentHomeGreetingSuffix: " 👋",
+  studentHomeWaveLabelPrefix: "You are in wave ",
+  studentNoWaveNote: "You're not in a wave yet.",
+  studentInstructorsTitle: "About instructors",
+  studentInstructorsEmptyNote: "No instructors have been added yet.",
+
   // Student — wave content (dashboard)
   studentWaveSectionTitle: "Your wave",
   studentWaveNoContent: "No content has been added to your wave yet.",
+  studentResourcesLabel: "Resources",
+  studentWeekNoMaterials: "No resources for this week yet.",
+  studentWeekNoAssignments: "No assignments for this week yet.",
   studentMaterialsLabel: "Materials",
   studentAssignmentsLabel: "Assignments",
   studentDueLabel: "Due",

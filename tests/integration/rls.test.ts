@@ -14,6 +14,7 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const hasCreds = Boolean(url && anonKey && serviceKey);
 
 const tenantIds: string[] = [];
+const instructorIds: string[] = [];
 
 describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
   it("an anon caller (no tenant claim) cannot read admin_profiles (SC-004)", async () => {
@@ -98,6 +99,43 @@ describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
     expect((seen ?? []).length).toBeGreaterThan(0);
   });
 
+  it("instructors are readable by any authenticated user but writable only by admins (feature 010)", async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(url!, serviceKey!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const anon = createClient(url!, anonKey!);
+
+    // Seed one instructor (global reference data — no tenant_id).
+    const { data: ins, error: seedErr } = await admin
+      .from("instructors")
+      .insert({ name: "rls-test-instructor" })
+      .select("id")
+      .single();
+    expect(seedErr).toBeNull();
+    instructorIds.push(ins!.id);
+
+    // Anonymous (unauthenticated) callers cannot read instructors.
+    const { data: anonRead } = await anon
+      .from("instructors")
+      .select("id")
+      .eq("id", ins!.id);
+    expect(anonRead ?? []).toHaveLength(0);
+
+    // A direct write by a non-admin (anon) is denied (no write policy applies).
+    const { error: writeErr } = await anon
+      .from("instructors")
+      .insert({ name: "rls-test-student-write" });
+    expect(writeErr).not.toBeNull();
+
+    // The admin (service-role bypass) still sees the seeded instructor.
+    const { data: adminRead } = await admin
+      .from("instructors")
+      .select("id")
+      .eq("id", ins!.id);
+    expect((adminRead ?? []).length).toBe(1);
+  });
+
   it("error_logs is admin-only and writable solely via log_error (feature 009, Principle VI)", async () => {
     const { createClient } = await import("@supabase/supabase-js");
     const admin = createClient(url!, serviceKey!, {
@@ -152,6 +190,9 @@ describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
       .from("error_logs")
       .delete()
       .in("operation", ["rls-test-error-logs", "rls-test-direct-insert"]);
+    if (instructorIds.length > 0) {
+      await admin.from("instructors").delete().in("id", instructorIds);
+    }
     if (tenantIds.length === 0) return;
     await admin.from("students").delete().in("tenant_id", tenantIds);
     await admin.from("tenants").delete().in("id", tenantIds);

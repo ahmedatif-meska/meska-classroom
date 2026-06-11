@@ -9,22 +9,18 @@ vi.mock("next/link", () => ({
 }));
 vi.mock("@/app/student/actions", () => ({ signOutStudent: vi.fn() }));
 // Async server child — stub so RTL can render the page synchronously.
-vi.mock("@/components/StudentWaveContent", () => ({
-  default: ({ tenantId, studentId }: { tenantId: string; studentId: string }) => (
-    <div data-testid="wave-content">{`${tenantId}:${studentId}`}</div>
-  ),
+vi.mock("@/components/StudentInstructors", () => ({
+  default: () => <div data-testid="instructors" />,
 }));
 
-// Per-table chainable mock: maybeSingle() for single-row reads, thenable for lists.
+// Per-table chainable mock: maybeSingle() for single-row reads, order() for lists.
 type Result = { single?: unknown; list?: unknown[] };
-function chain(result: Result) {
+function makeBuilder(result: Result) {
   const b: Record<string, unknown> = {};
   b.select = () => b;
   b.eq = () => b;
-  b.order = () => b;
+  b.order = async () => ({ data: result.list ?? [] });
   b.maybeSingle = async () => ({ data: result.single ?? null });
-  b.then = (resolve: (v: { data: unknown[] }) => unknown) =>
-    Promise.resolve({ data: result.list ?? [] }).then(resolve);
   return b;
 }
 
@@ -32,9 +28,9 @@ let waveRow: { name: string; description_html: string | null } | null = null;
 
 const from = vi.fn((table: string) => {
   if (table === "students")
-    return chain({ single: { id: "stu1", full_name: "Mona" } });
-  if (table === "tenants") return chain({ single: waveRow });
-  return chain({ list: [] }); // wave_weeks / materials / assignments / submissions
+    return makeBuilder({ single: { id: "stu1", full_name: "Mona" } });
+  if (table === "tenants") return makeBuilder({ single: waveRow });
+  return makeBuilder({ list: [] }); // wave_weeks
 });
 
 const getUser = vi.fn(async () => ({
@@ -53,19 +49,25 @@ beforeEach(() => {
   waveRow = null;
 });
 
-describe("Student dashboard — wave description (US1.2)", () => {
-  it("renders the enrolled wave's description with its formatting", async () => {
+describe("Student Home — wave label & description (US1.1)", () => {
+  it("labels the enrolled wave by name and renders its description", async () => {
     waveRow = { name: "July", description_html: "<p>Welcome to July</p>" };
     render(await StudentDashboard());
-    expect(screen.getByText(strings.studentWaveSectionTitle)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${strings.studentHomeWaveLabelPrefix}July`)
+    ).toBeInTheDocument();
     expect(screen.getByText("Welcome to July")).toBeInTheDocument();
-    // The wave content child is wired with the caller's wave + student id.
-    expect(screen.getByTestId("wave-content")).toHaveTextContent("wave-A:stu1");
   });
 
   it("shows an empty state when the wave has no description", async () => {
     waveRow = { name: "July", description_html: null };
     render(await StudentDashboard());
     expect(screen.getByText(strings.dashboardEmptyNote)).toBeInTheDocument();
+  });
+
+  it("shows the no-wave note when the student is unassigned", async () => {
+    waveRow = null;
+    render(await StudentDashboard());
+    expect(screen.getByText(strings.studentNoWaveNote)).toBeInTheDocument();
   });
 });

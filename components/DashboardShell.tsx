@@ -63,7 +63,103 @@ function ChevronLeftIcon() {
   );
 }
 
-export type NavItem = { label: string; href: string; icon?: React.ReactNode };
+function ChevronDownIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={`shrink-0 transition-transform duration-200 ${
+        open ? "rotate-180" : ""
+      }`}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+export type NavItem = {
+  label: string;
+  href: string;
+  icon?: React.ReactNode;
+  // When present, the item renders as a collapsible disclosure group whose
+  // children are nested links. An empty array renders `childrenEmptyLabel`.
+  children?: NavItem[];
+  childrenEmptyLabel?: string;
+};
+
+const LINK_BASE =
+  "flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+
+/**
+ * A collapsible nav group (e.g. the student "Weeks" entry). Owns its own open
+ * state, auto-expanded when one of its children is the active route. Keyboard
+ * accessible and drawer-aware (children close the mobile drawer on click).
+ */
+function NavGroup({
+  item,
+  resolvedActive,
+  onNavigate,
+}: {
+  item: NavItem;
+  resolvedActive?: string;
+  onNavigate: () => void;
+}) {
+  const children = item.children ?? [];
+  const childActive = children.some((c) => c.href === resolvedActive);
+  const [open, setOpen] = useState(childActive);
+  const panelId = `nav-group-${item.label.replace(/\s+/g, "-").toLowerCase()}`;
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        className={`${LINK_BASE} w-full text-ink hover:bg-slate-50`}
+      >
+        {item.icon}
+        <span className="flex-1 text-left">{item.label}</span>
+        <ChevronDownIcon open={open} />
+      </button>
+      {open ? (
+        <div id={panelId} className="mt-1 flex flex-col gap-1 pl-4">
+          {children.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-slate-400">
+              {item.childrenEmptyLabel}
+            </p>
+          ) : (
+            children.map((child) => {
+              const active = child.href === resolvedActive;
+              return (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={onNavigate}
+                  className={
+                    active
+                      ? `${LINK_BASE} bg-brand/10 text-brand`
+                      : `${LINK_BASE} text-ink hover:bg-slate-50`
+                  }
+                >
+                  {child.label}
+                </Link>
+              );
+            })
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 // Neutral single-item default (href="#") so a consumer that passes no navItems
 // — e.g. the student dashboard — never leaks a cross-panel link (panel isolation).
@@ -136,6 +232,16 @@ export default function DashboardShell({
         </div>
         <nav className="flex flex-1 flex-col gap-1 p-3">
           {navItems.map((item) => {
+            if (item.children) {
+              return (
+                <NavGroup
+                  key={item.href}
+                  item={item}
+                  resolvedActive={resolvedActive}
+                  onNavigate={() => setOpen(false)}
+                />
+              );
+            }
             const active = item.href === resolvedActive;
             return (
               <Link
@@ -145,8 +251,8 @@ export default function DashboardShell({
                 onClick={() => setOpen(false)}
                 className={
                   active
-                    ? "flex items-center gap-3 px-3 py-2.5 rounded-lg bg-brand/10 text-brand font-semibold text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                    : "flex items-center gap-3 px-3 py-2.5 rounded-lg text-ink font-semibold text-sm hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                    ? `${LINK_BASE} bg-brand/10 text-brand`
+                    : `${LINK_BASE} text-ink hover:bg-slate-50`
                 }
               >
                 {item.icon}

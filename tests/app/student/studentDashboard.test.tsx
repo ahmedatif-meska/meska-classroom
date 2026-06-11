@@ -10,22 +10,29 @@ vi.mock("next/link", () => ({
 
 vi.mock("@/app/student/actions", () => ({ signOutStudent: vi.fn() }));
 
+// Async server child — stub so RTL can render the page synchronously.
+vi.mock("@/components/StudentInstructors", () => ({
+  default: () => <div data-testid="instructors" />,
+}));
+
 let student: { id: string; full_name: string | null } | null = null;
 let waveRow: { name: string; description_html: string | null } | null = null;
 let currentUser: { id: string; app_metadata?: Record<string, unknown> } = {
   id: "member-id",
 };
 
-const from = vi.fn((table: string) => ({
-  select: vi.fn(() => ({
-    eq: vi.fn(() => ({
-      maybeSingle: vi.fn(async () => ({
-        data: table === "tenants" ? waveRow : student,
-        error: null,
-      })),
-    })),
-  })),
-}));
+const from = vi.fn((table: string) => {
+  const b: Record<string, unknown> = {};
+  b.select = () => b;
+  b.eq = () => b;
+  // wave_weeks (buildStudentNav) is a list read terminated by .order()
+  b.order = async () => ({ data: [] });
+  b.maybeSingle = async () => ({
+    data: table === "tenants" ? waveRow : student,
+    error: null,
+  });
+  return b;
+});
 const getUser = vi.fn(async () => ({ data: { user: currentUser } }));
 
 vi.mock("@/lib/supabase/server", () => ({
