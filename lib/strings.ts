@@ -213,6 +213,7 @@ const strings = {
   membersStatusActive: "Active",
   membersEmptyNote: "No members yet — add your first one",
   membersViewLabel: "View",
+  membersWaveUnassigned: "Unassigned",
 
   // Admin — Members (add chooser)
   addMembersChooserTitle: "Add Members",
@@ -258,6 +259,21 @@ const strings = {
   removeMemberSubmitLabel: "Remove",
   removeMemberSubmittingLabel: "Removing…",
   removeMemberFailed: "The member couldn't be removed. Please try again.",
+
+  // Admin — Members (reassign wave)
+  reassignToolbarLabel: "Reassign wave",
+  reassignRowLabel: "Reassign",
+  reassignSelectedLabel: "selected",
+  reassignSelectAllAria: "Select all unassigned members",
+  reassignSelectOneAria: "Select",
+  reassignTitle: "Reassign wave",
+  reassignSubtitle: "Choose the wave to assign the selected members to.",
+  reassignSubmitLabel: "Reassign",
+  reassignSubmittingLabel: "Reassigning…",
+  reassignNoSelection: "Select at least one unassigned member.",
+  reassignFailed: "The members couldn't be reassigned. Please try again.",
+  reassignSuccessLabel: "reassigned",
+  reassignFailedCountLabel: "failed",
 
   // Admin — Members (bulk upload)
   bulkFileLabel: "CSV file",

@@ -84,7 +84,7 @@ export default async function MembersPage() {
           </div>
         </div>
 
-        <MemberTable members={members} />
+        <MemberTable members={members} waves={waves} />
       </div>
     </DashboardShell>
   );

@@ -30,6 +30,7 @@ vi.mock("@/app/admin/members/actions", () => ({
   bulkCreateMembers: vi.fn(),
   resendMemberInvite: vi.fn(),
   removeMember: vi.fn(),
+  reassignMembers: vi.fn(),
 }));
 
 type Student = {
