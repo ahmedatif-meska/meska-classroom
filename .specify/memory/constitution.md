@@ -80,6 +80,14 @@ study sessions, and accessed primarily on mobile across phones, tablets, and des
 - For long mobile sessions: assignment drafts MUST autosave so a dropped connection loses no
   work, and uploads MUST declare allowed formats and a maximum size, enforced both client-
   and server-side.
+- File bytes MUST upload **directly from the browser to Supabase Storage** (RLS-scoped,
+  with bucket-level size/MIME limits as the server-side authority) — NEVER inside a Server
+  Action or route-handler request body. Hosting platforms hard-cap function request bodies
+  (~4.5 MB on Vercel, not configurable) far below the feature upload ceilings, so a file
+  routed through the server works on localhost and fails in production. The server receives
+  only the uploaded object's **path** and MUST validate that path against the caller's
+  wave/role scope before recording it (Principle VI). See
+  `specs/008-wave-management/learning.md` for the incident that ratified this.
 
 ### VI. Wave Isolation & Tenant Boundaries (NON-NEGOTIABLE)
 
@@ -191,6 +199,6 @@ This constitution supersedes other development practices; on conflict, it wins.
 - `CLAUDE.md` provides runtime guidance and MUST stay consistent with this document; if
   they diverge, this document governs and `CLAUDE.md` MUST be corrected.
 
-**Version**: 2.1.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-04
+**Version**: 2.2.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-11
 
 

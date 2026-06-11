@@ -92,6 +92,8 @@ The app is backed by **Supabase** (Postgres + Auth + Storage). There are no Next
 
 **Member QR flow:** a member's dashboard shows a QR (`MemberQrCode`, rendered as inline SVG by `lib/members/qr.ts`) encoding the absolute `/admin/members/<id>` URL. An admin scans it (`ScanMemberButton`, `html5-qrcode`); `lib/members/scan.ts#targetPathFromScan` validates the decoded text and strips the origin so navigation can only ever target our own member route, never an arbitrary URL.
 
+**File uploads (CRITICAL — browser → Storage, never through the server):** user file bytes MUST upload **directly from the browser to Supabase Storage** (anon client, RLS-bounded); the Server Action receives only the uploaded object's **path** and MUST validate it against the caller's wave/role scope before recording it (`isMaterialObjectPath` in `lib/waves/validation.ts`; exact own-slot match in `submitAssignment`). Never put a `File` in a Server Action's `FormData`: Vercel hard-caps function request bodies at ~4.5 MB (no config can raise it), so server-side uploads work on localhost and **fail in production** — and raising `serverActions.bodySizeLimit` / `proxyClientMaxBodySize` in `next.config.ts` only fixes localhost. Size/MIME are enforced server-side at the bucket (`file_size_limit` + `allowed_mime_types`, migration `0011`); client `validateMaterialFile`/`validateSubmissionFile` checks are UX only. Full incident write-up: `specs/008-wave-management/learning.md`.
+
 ### Config & copy (`lib/`)
 
 - `lib/panels.ts` — `Panel` type and `PANELS` constant. `panel.home` is **always derived** as `` `/${panel.id}` `` — never hand-written. This is the single source of truth that makes cross-panel link leakage structurally impossible.
@@ -120,13 +122,13 @@ Vitest + React Testing Library (jsdom). Config: `vitest.config.ts` (globals enab
 
 ## Project principles
 
-All work MUST comply with the project constitution at `.specify/memory/constitution.md` (currently **v2.1.0**; this file MUST stay consistent with it). In particular:
+All work MUST comply with the project constitution at `.specify/memory/constitution.md` (currently **v2.2.0**; this file MUST stay consistent with it). In particular:
 
 - **Mobile-first, responsive & accessible** — every screen/component works from 320px through desktop; validate at 320, 390, 430, 768px and desktop. Interactive elements must be touch-friendly, keyboard accessible, and show visible focus; mobile inputs use ≥16px font. Target **WCAG 2.1 AA** (≥4.5:1 contrast). The interface is **English only, left-to-right (LTR)**; internationalization, multi-language support, and RTL are out of scope until a future amendment reintroduces them.
 - **Brand & UX consistency** — neon blue on white, `#EEF3F8` page background, tight palette via shared tokens; define loading/empty/error states. The Meska logo (canonical asset `MeskaLogo.png`) sits in the persistent header on every screen and links to the user's panel home — Student home for students, Admin home for admins (context-aware, never crossing panels).
 - **Wave isolation (NON-NEGOTIABLE)** — students see only data for waves they are enrolled in; every wave-scoped query filters by the current user's enrollments, enforced server-side, with the cross-wave denial case covered by tests.
 - **Testing (NON-NEGOTIABLE)** — see the testing note above.
-- **Performance** — RSC-first, bounded/paginated wave-scoped reads, lazy media, no Core Web Vitals (LCP/CLS/interaction) regressions on mobile.
+- **Performance** — RSC-first, bounded/paginated wave-scoped reads, lazy media, no Core Web Vitals (LCP/CLS/interaction) regressions on mobile. File uploads go browser → Supabase Storage directly, never through a Server Action body (see "File uploads" above).
 - **Artifact structure & walkthroughs (NON-NEGOTIABLE)** — Spec Kit artifacts MUST follow Principle VII: `plan.md` nests acceptance criteria and test scenarios at the **phase** level; `tasks.md` is `## Phase N` → `### User Story N.x` → atomic `- [ ]` items; each implemented phase ships a `walkthrough.md` in `specs/<feature>/`. Reviewers reject deviations.
 
 ## Working guidelines
