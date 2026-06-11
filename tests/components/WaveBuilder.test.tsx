@@ -55,7 +55,7 @@ const pdf = (n: string) => new File(["x"], n, { type: "application/pdf" });
 const saveButton = () =>
   screen.getByRole("button", { name: strings.waveFormSubmitLabel });
 const addWeekBtn = () =>
-  screen.getByRole("button", { name: `+ ${strings.weekAddLabel}` });
+  screen.getByRole("button", { name: strings.weekAddLabel });
 const setBasics = () => {
   fireEvent.change(screen.getByLabelText(/wave name/i), {
     target: { value: "July" },
@@ -107,7 +107,7 @@ describe("WaveBuilder — create", () => {
     expect(
       screen.getByPlaceholderText(strings.weekTitlePlaceholder)
     ).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(strings.materialAddLabel))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(strings.materialUploadLabel))).toBeInTheDocument();
     expect(
       screen.getByText(new RegExp(strings.assignmentAddLabel))
     ).toBeInTheDocument();

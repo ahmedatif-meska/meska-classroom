@@ -365,6 +365,8 @@ const strings = {
   weekTitlePlaceholder: "e.g. Week 1",
   weekDescriptionLabel: "Week description (optional)",
   weekDefaultTitle: "Week",
+  weekDetailsLabel: "Details",
+  weekAddNumberedPrefix: "Add Week",
   weekSaveLabel: "Save week",
   weekRemoveLabel: "Remove week",
   weeksEmptyNote: "No weeks yet — add the first week",
@@ -372,6 +374,7 @@ const strings = {
 
   // Admin — Waves (materials)
   materialAddLabel: "Add material",
+  materialUploadLabel: "Upload material",
   materialTitleLabel: "Title",
   materialFileLabel: "File",
   materialFileHelp: "PDF or PowerPoint, up to 25 MB",
@@ -394,6 +397,12 @@ const strings = {
   assignmentNoSubmissions: "No submissions yet",
   wavesAssignmentSaveFailed:
     "The assignment couldn't be saved. Please try again.",
+
+  // Admin — Waves (video links — visual placeholder, not yet persisted)
+  videoLinksLabel: "Video Links",
+  videoLinkPlaceholder: "Paste YouTube or Vimeo URL",
+  videoAddLabel: "Add",
+  videoRemoveLabel: "Remove video link",
 
   // Admin — Error log (list)
   errorsNavLabel: "Errors",

@@ -61,14 +61,48 @@ type DraftWeek = {
 
 const FILE_ACCEPT = ".pdf,.ppt,.pptx";
 
+const labelClass =
+  "block text-xs font-semibold uppercase tracking-wider text-slate-500";
+const cardClass =
+  "rounded-xl border border-slate-200 bg-surface/90 p-6 shadow-sm backdrop-blur-xl sm:p-8";
 const inputClass =
-  "rounded-2xl border border-slate-200 bg-page px-4 py-3 text-base text-ink placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+  "w-full rounded-lg border-0 bg-slate-100 p-4 text-base text-ink placeholder:text-slate-400 outline-none transition-all focus:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 const smallInputClass =
-  "rounded-xl border border-slate-200 bg-page px-3 py-2 text-base text-ink placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
-const removeBtnClass =
-  "shrink-0 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60";
-const addBtnClass =
-  "relative inline-flex cursor-pointer self-start rounded-full border border-slate-200 px-4 py-1.5 text-xs font-semibold text-ink hover:bg-slate-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand";
+  "w-full rounded-lg border-0 bg-slate-100 p-3 text-base text-ink placeholder:text-slate-400 outline-none transition-all focus:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+
+// --- inline icons (decorative; labels carry the accessible name) ------------
+const iconBase = "h-5 w-5";
+function Icon({ d, className = iconBase }: { d: string; className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {d.split("|").map((p) => (
+        <path key={p} d={p} />
+      ))}
+    </svg>
+  );
+}
+const ICONS = {
+  wifi: "M2.808 9.308a13 13 0 0118.384 0|M5.636 12.136a9 9 0 0112.728 0|M8.464 14.964a5 5 0 017.072 0|M12 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z",
+  wifiOff: "M18.364 18.364A9 9 0 005.636 5.636|M3 3l18 18",
+  trash:
+    "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+  file: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+  upload: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12",
+  clipboard:
+    "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+  plus: "M12 4v16m8-8H4",
+  x: "M6 18L18 6M6 6l12 12",
+  play: "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z|M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+} as const;
 
 const TYPE_LABELS: Record<(typeof WAVE_TYPES)[number], string> = {
   online: strings.waveTypeOnline,
@@ -116,12 +150,33 @@ const seedWeeks = (ws: AdminWeek[]): DraftWeek[] =>
     })),
   }));
 
-/** A bulk-upload file list (used identically for materials and assignments). */
+/** The title text (linked when an uploaded URL exists). */
+function FileTitle({ item }: { item: DraftFile }) {
+  return item.url ? (
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-medium text-brand hover:underline"
+    >
+      {item.title}
+    </a>
+  ) : (
+    <>{item.title}</>
+  );
+}
+
+/**
+ * A bulk file uploader, used for materials (compact rows) and assignments
+ * (cards). The file bytes upload browser→Storage on Save; the Server Action
+ * only ever receives the object path.
+ */
 function FileSection({
   heading,
   items,
   addLabel,
   removeLabel,
+  tone,
   onAdd,
   onRemove,
 }: {
@@ -129,56 +184,159 @@ function FileSection({
   items: DraftFile[];
   addLabel: string;
   removeLabel: string;
+  tone: "material" | "assignment";
   onAdd: (files: File[]) => void;
   onRemove: (item: DraftFile) => void;
 }) {
+  const fileInput = (
+    <input
+      type="file"
+      multiple
+      accept={FILE_ACCEPT}
+      className="sr-only"
+      onChange={(e) => {
+        const files = Array.from(e.target.files ?? []);
+        e.target.value = ""; // allow re-selecting the same file later
+        if (files.length) onAdd(files);
+      }}
+    />
+  );
+
   return (
-    <div className="flex flex-col gap-2">
-      <h4 className="text-sm font-semibold text-slate-500">{heading}</h4>
-      {items.map((item) => (
-        <div
-          key={item.key}
-          className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-page p-3"
-        >
-          <span className="min-w-0 truncate text-sm text-ink">
-            📄{" "}
-            {item.url ? (
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-brand hover:underline"
+    <div className="space-y-3">
+      <label className={labelClass}>{heading}</label>
+      <div className="space-y-2">
+        {items.map((item) =>
+          tone === "material" ? (
+            <div
+              key={item.key}
+              className="flex items-center gap-3 rounded-lg border border-slate-200/60 bg-brand/5 p-3"
+            >
+              <Icon d={ICONS.file} className="h-5 w-5 shrink-0 text-brand" />
+              <span className="min-w-0 flex-grow truncate text-sm font-medium text-ink">
+                <FileTitle item={item} />
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemove(item)}
+                aria-label={removeLabel}
+                title={removeLabel}
+                className="shrink-0 rounded-full p-1 text-slate-500 transition-colors hover:text-red-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
               >
-                {item.title}
-              </a>
-            ) : (
-              item.title
-            )}
-          </span>
-          <button
-            type="button"
-            onClick={() => onRemove(item)}
-            className={removeBtnClass}
-          >
-            {removeLabel}
-          </button>
-        </div>
-      ))}
-      <label className={addBtnClass}>
-        + {addLabel}
-        <input
-          type="file"
-          multiple
-          accept={FILE_ACCEPT}
-          className="sr-only"
-          onChange={(e) => {
-            const files = Array.from(e.target.files ?? []);
-            e.target.value = ""; // allow re-selecting the same file later
-            if (files.length) onAdd(files);
-          }}
-        />
-      </label>
+                <Icon d={ICONS.x} className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div
+              key={item.key}
+              className="flex items-start justify-between gap-3 rounded-lg border border-slate-200/60 bg-surface p-4 shadow-sm"
+            >
+              <h5 className="min-w-0 break-words text-sm font-bold text-ink">
+                <FileTitle item={item} />
+              </h5>
+              <button
+                type="button"
+                onClick={() => onRemove(item)}
+                aria-label={removeLabel}
+                title={removeLabel}
+                className="shrink-0 rounded-full p-1 text-slate-500 transition-colors hover:text-red-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                <Icon d={ICONS.x} className="h-4 w-4" />
+              </button>
+            </div>
+          )
+        )}
+
+        {tone === "material" ? (
+          <label className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 py-3 text-slate-500 transition-colors hover:border-brand/50 hover:bg-brand/5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand">
+            <Icon
+              d={ICONS.upload}
+              className="h-5 w-5 text-slate-500 group-hover:text-brand"
+            />
+            <span className="text-sm font-medium group-hover:text-brand">
+              {addLabel}
+            </span>
+            {fileInput}
+          </label>
+        ) : (
+          <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-brand/30 py-2.5 text-xs font-semibold text-brand transition-colors hover:bg-brand/5 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand">
+            <Icon d={ICONS.clipboard} className="h-4 w-4" />
+            {addLabel}
+            {fileInput}
+          </label>
+        )}
+      </div>
       <p className="text-xs text-slate-500">{strings.materialFileHelp}</p>
+    </div>
+  );
+}
+
+/**
+ * Video Links — VISUAL PLACEHOLDER ONLY. There is no backend for video links
+ * (no column/table/action), so entries live in local state and are intentionally
+ * NOT persisted on Save. Wiring real persistence needs a migration + action.
+ */
+function VideoLinksSection() {
+  const [url, setUrl] = useState("");
+  const [links, setLinks] = useState<string[]>([]);
+
+  const add = () => {
+    const v = url.trim();
+    if (!v) return;
+    setLinks((ls) => [...ls, v]);
+    setUrl("");
+  };
+
+  return (
+    <div className="space-y-3">
+      <label className={labelClass} htmlFor="video-url">
+        {strings.videoLinksLabel}
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="video-url"
+          type="url"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+          placeholder={strings.videoLinkPlaceholder}
+          className="flex-grow rounded-lg border-0 bg-slate-100 px-4 py-2 text-sm text-ink placeholder:text-slate-400 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        />
+        <button
+          type="button"
+          onClick={add}
+          className="rounded-lg bg-brand px-4 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:brightness-110 active:scale-95"
+        >
+          {strings.videoAddLabel}
+        </button>
+      </div>
+      {links.length > 0 ? (
+        <ul className="space-y-2">
+          {links.map((link, i) => (
+            <li
+              key={`${link}-${i}`}
+              className="flex items-center gap-2 rounded-lg border border-brand/10 bg-brand/5 p-2.5 text-xs text-brand"
+            >
+              <Icon d={ICONS.play} className="h-4 w-4 shrink-0" />
+              <span className="flex-grow truncate font-medium">{link}</span>
+              <button
+                type="button"
+                onClick={() => setLinks((ls) => ls.filter((_, j) => j !== i))}
+                aria-label={strings.videoRemoveLabel}
+                title={strings.videoRemoveLabel}
+                className="shrink-0 text-slate-500 transition-colors hover:text-red-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              >
+                <Icon d={ICONS.x} className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -383,164 +541,204 @@ export default function WaveBuilder({
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="space-y-8 pb-28">
       {/* Basics */}
-      <div className="max-w-2xl rounded-2xl border border-slate-200 bg-surface p-6 sm:p-8">
-        <div className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <label htmlFor="wave-name" className="text-sm font-bold text-ink">
-              {strings.waveNameLabel} *
-            </label>
-            <input
-              id="wave-name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={strings.waveNamePlaceholder}
-              className={inputClass}
-            />
-          </div>
-
-          <RichTextEditor
-            name="description_html"
-            label={strings.waveDescriptionLabel}
-            initialHtml={existing?.wave.description_html ?? ""}
-            onChange={setHtml}
+      <div className={`${cardClass} space-y-6`}>
+        <div className="space-y-2">
+          <label htmlFor="wave-name" className={labelClass}>
+            {strings.waveNameLabel} *
+          </label>
+          <input
+            id="wave-name"
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={strings.waveNamePlaceholder}
+            className={inputClass}
           />
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-bold text-ink">
-              {strings.waveTypeLabel} *
-            </legend>
-            <div className="flex flex-wrap gap-3">
-              {WAVE_TYPES.map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  aria-pressed={type === t}
-                  onClick={() => setType(t)}
-                  className={`rounded-full border px-5 py-2.5 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
-                    type === t
-                      ? "border-brand bg-brand/10 text-brand"
-                      : "border-slate-200 text-ink hover:bg-slate-50"
-                  }`}
-                >
-                  {TYPE_LABELS[t]}
-                </button>
-              ))}
-            </div>
-          </fieldset>
         </div>
+
+        <RichTextEditor
+          name="description_html"
+          label={strings.waveDescriptionLabel}
+          initialHtml={existing?.wave.description_html ?? ""}
+          onChange={setHtml}
+        />
+
+        <fieldset className="space-y-4">
+          <legend className={labelClass}>{strings.waveTypeLabel} *</legend>
+          <div className="flex flex-wrap gap-3">
+            {WAVE_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={type === t}
+                onClick={() => setType(t)}
+                className={`flex items-center gap-2 rounded-full border-2 px-6 py-2.5 text-base font-semibold transition-all active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                  type === t
+                    ? "border-brand bg-brand/10 text-brand shadow-sm"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <Icon d={t === "online" ? ICONS.wifi : ICONS.wifiOff} />
+                {TYPE_LABELS[t]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
       </div>
 
       {/* Weeks */}
-      <div className="flex flex-col gap-4">
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-ink">
+          <h2 className="text-xl font-bold text-ink">
             {strings.weeksSectionTitle}
           </h2>
           <button
             type="button"
             onClick={() => setWeeks((ws) => [...ws, newWeek()])}
-            className="rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand hover:bg-brand/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="inline-flex items-center gap-2 rounded-lg border border-brand px-4 py-2 text-sm font-semibold text-brand shadow-sm transition-colors hover:bg-brand/5 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
-            + {strings.weekAddLabel}
+            <Icon d={ICONS.plus} className="h-4 w-4" />
+            {strings.weekAddLabel}
           </button>
         </div>
 
         {weeks.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-slate-200 bg-surface px-4 py-6 text-sm text-slate-500">
+          <p className="rounded-xl border border-dashed border-slate-300 bg-surface/60 px-4 py-6 text-sm text-slate-500">
             {strings.weeksEmptyNote}
           </p>
         ) : (
           weeks.map((week, wi) => (
             <section
               key={week.key}
-              className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-surface p-6"
+              className="overflow-hidden rounded-xl border border-brand/20 bg-surface/90 shadow-md backdrop-blur-xl"
             >
-              <div className="flex items-start justify-between gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  {strings.weekDefaultTitle} {wi + 1}
-                </span>
+              <header className="flex items-center justify-between gap-3 border-b border-slate-200/60 bg-brand/5 px-6 py-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-sm font-bold text-white">
+                    {wi + 1}
+                  </span>
+                  <h4 className="text-base font-bold text-brand">
+                    {strings.weekDefaultTitle} {wi + 1} {strings.weekDetailsLabel}
+                  </h4>
+                </div>
                 <button
                   type="button"
                   onClick={() => void removeWeekRow(week)}
-                  className={removeBtnClass}
+                  aria-label={strings.weekRemoveLabel}
+                  title={strings.weekRemoveLabel}
+                  className="rounded-full p-2 text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
-                  {strings.weekRemoveLabel}
+                  <Icon d={ICONS.trash} />
                 </button>
+              </header>
+
+              <div className="space-y-6 p-6">
+                <div className="space-y-2">
+                  <label className={labelClass}>
+                    {strings.weekTitleLabel} *
+                  </label>
+                  <input
+                    type="text"
+                    value={week.title}
+                    onChange={(e) =>
+                      patchWeek(week.key, { title: e.target.value })
+                    }
+                    placeholder={strings.weekTitlePlaceholder}
+                    className={smallInputClass}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className={labelClass}>
+                    {strings.weekDescriptionLabel}
+                  </label>
+                  <textarea
+                    value={week.description}
+                    onChange={(e) =>
+                      patchWeek(week.key, { description: e.target.value })
+                    }
+                    rows={3}
+                    placeholder={strings.weekDescriptionLabel}
+                    className={`${smallInputClass} min-h-[100px] resize-y text-sm`}
+                  />
+                </div>
+
+                <FileSection
+                  heading={strings.studentMaterialsLabel}
+                  items={week.materials}
+                  addLabel={strings.materialUploadLabel}
+                  removeLabel={strings.materialRemoveLabel}
+                  tone="material"
+                  onAdd={(files) =>
+                    patchWeek(week.key, {
+                      materials: [...week.materials, ...files.map(fileEntry)],
+                    })
+                  }
+                  onRemove={(item) =>
+                    void removeFile(week, item, "materials", removeMaterial)
+                  }
+                />
+
+                <FileSection
+                  heading={strings.studentAssignmentsLabel}
+                  items={week.assignments}
+                  addLabel={strings.assignmentAddLabel}
+                  removeLabel={strings.assignmentRemoveLabel}
+                  tone="assignment"
+                  onAdd={(files) =>
+                    patchWeek(week.key, {
+                      assignments: [
+                        ...week.assignments,
+                        ...files.map(fileEntry),
+                      ],
+                    })
+                  }
+                  onRemove={(item) =>
+                    void removeFile(week, item, "assignments", removeAssignment)
+                  }
+                />
+
+                <VideoLinksSection />
               </div>
-
-              <input
-                type="text"
-                value={week.title}
-                onChange={(e) => patchWeek(week.key, { title: e.target.value })}
-                placeholder={strings.weekTitlePlaceholder}
-                className={smallInputClass}
-              />
-              <textarea
-                value={week.description}
-                onChange={(e) =>
-                  patchWeek(week.key, { description: e.target.value })
-                }
-                rows={2}
-                placeholder={strings.weekDescriptionLabel}
-                className={smallInputClass}
-              />
-
-              <FileSection
-                heading={strings.studentMaterialsLabel}
-                items={week.materials}
-                addLabel={strings.materialAddLabel}
-                removeLabel={strings.materialRemoveLabel}
-                onAdd={(files) =>
-                  patchWeek(week.key, {
-                    materials: [...week.materials, ...files.map(fileEntry)],
-                  })
-                }
-                onRemove={(item) =>
-                  void removeFile(week, item, "materials", removeMaterial)
-                }
-              />
-
-              <FileSection
-                heading={strings.studentAssignmentsLabel}
-                items={week.assignments}
-                addLabel={strings.assignmentAddLabel}
-                removeLabel={strings.assignmentRemoveLabel}
-                onAdd={(files) =>
-                  patchWeek(week.key, {
-                    assignments: [
-                      ...week.assignments,
-                      ...files.map(fileEntry),
-                    ],
-                  })
-                }
-                onRemove={(item) =>
-                  void removeFile(week, item, "assignments", removeAssignment)
-                }
-              />
             </section>
           ))
         )}
+
+        {weeks.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => setWeeks((ws) => [...ws, newWeek()])}
+            className="group flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 p-6 text-center transition-all hover:border-brand/60 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/10 text-slate-500 transition-colors group-hover:bg-brand/10 group-hover:text-brand">
+              <Icon d={ICONS.plus} />
+            </span>
+            <span className="text-sm font-semibold text-slate-500 group-hover:text-brand">
+              {strings.weekAddNumberedPrefix} {weeks.length + 1}
+            </span>
+          </button>
+        ) : null}
       </div>
 
-      {/* Save — end of page */}
-      <div className="flex max-w-2xl flex-col gap-3">
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
-          >
-            {error}
-          </p>
-        ) : null}
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+        >
+          {error}
+        </p>
+      ) : null}
+
+      {/* Sticky Save bar — bleeds to the main edges past the page's padding. */}
+      <div className="sticky bottom-0 z-40 -mx-8 -mb-8 border-t border-slate-200/40 bg-surface/80 px-8 py-4 shadow-lg backdrop-blur-md">
         <button
           type="button"
           onClick={handleSave}
           disabled={pending}
-          className="self-start rounded-full bg-brand px-8 py-3 text-sm font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60"
+          className="w-full rounded-xl bg-brand py-3.5 text-lg font-bold text-white shadow-md transition-all duration-150 hover:brightness-110 active:scale-[0.99] disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
         >
           {pending
             ? strings.waveFormSubmittingLabel
