@@ -42,7 +42,8 @@ app/page.tsx                       ← redirect("/student")
 app/student/page.tsx               ← join-session card (sign-in), centered
 app/student/set-password/          ← member onboarding (set password after magic link)
 app/student/auth/confirm/          ← magic-link / invite confirmation handler
-app/student/dashboard/page.tsx     ← student dashboard (sidebar layout; shows member QR)
+app/student/dashboard/page.tsx     ← student Home (greeting, wave name, instructors, member QR — no materials/assignments here)
+app/student/dashboard/weeks/[weekId]/page.tsx ← per-week view (Resources + Assignments disclosures), self-gated to the caller's wave
 app/admin/page.tsx                 ← admin portal card (sign-in), centered
 app/admin/forgot-password/         ← request password-reset email
 app/admin/reset-password/          ← set a new password from the reset link
@@ -58,7 +59,7 @@ Each panel root directory also contains `loading.tsx`, `error.tsx` (`'use client
 
 ### Shell components (`components/`)
 
-- `DashboardShell` — **Client Component** (`'use client'`; owns the mobile drawer open/closed `useState`). Takes `panelName`, `navItems`, `activeHref`, `footer`, and `children`. On `md`+ it renders the fixed left sidebar (panel name in brand blue) alongside a scrollable `<main>`, as before. Below `md` the sidebar is an off-canvas drawer (`fixed … -translate-x-full`, slides in over a `bg-ink/40` backdrop) opened by a hamburger top bar; it closes on backdrop tap, the in-drawer chevron, any nav-link click, or `Escape`. The toggle wires `aria-label`/`aria-expanded`/`aria-controls`. Server-rendered `footer`/`children` (e.g. `AdminSidebarFooter`, page content) are passed in as props and cross the boundary unchanged. Used by both dashboard pages and the admins page.
+- `DashboardShell` — **Client Component** (`'use client'`; owns the mobile drawer open/closed `useState`). Takes `panelName`, `navItems`, `activeHref`, `footer`, and `children`. On `md`+ it renders the fixed left sidebar (panel name in brand blue) alongside a scrollable `<main>`, as before. Below `md` the sidebar is an off-canvas drawer (`fixed … -translate-x-full`, slides in over a `bg-ink/40` backdrop) opened by a hamburger top bar; it closes on backdrop tap, the in-drawer chevron, any nav-link click, or `Escape`. The toggle wires `aria-label`/`aria-expanded`/`aria-controls`. Server-rendered `footer`/`children` (e.g. `AdminSidebarFooter`, `StudentSidebarFooter`, page content) are passed in as props and cross the boundary unchanged. Used by both dashboard pages and the admins page. A `NavItem` may carry `children?: NavItem[]` (+ `childrenEmptyLabel`) to render a **collapsible disclosure group** (the student "Weeks" entry — auto-expands when a child is the active route, `aria-expanded`/`aria-controls`, drawer-aware) and an optional `sublabel` (a secondary line under the label, e.g. a week's name under "Week N"); flat items (admin nav) render unchanged.
 - `AdminTable` — Server Component; renders a semantic `<table>` inside `overflow-x-auto` with `min-w-[760px]` and `whitespace-nowrap` cells, so on mobile it scrolls horizontally rather than reflowing to cards. Each `<tr>` carries `data-admin-row` (a test hook).
 - `Logo` — Server Component; `next/image` wrapped in `next/link`; `aria-label` and `alt` from `lib/strings.ts`. Takes `homeHref` prop. Used on the student sign-in page.
 - `PanelShell` — exists in `components/` but is currently unused (dead code from early implementation). The sign-in pages inline their own centering wrapper.
@@ -86,7 +87,7 @@ The app is backed by **Supabase** (Postgres + Auth + Storage). There are no Next
 
 **RLS is the non-bypassable boundary (`supabase/migrations/`):** policies key off `is_admin()` and `jwt_tenant_id()` SQL helpers reading the JWT claims. Admins see all tenants; a tenant-scoped (student) caller sees only rows where `tenant_id = jwt_tenant_id()` — zero cross-tenant leakage (constitution's wave-isolation principle). Audit writes go through the `SECURITY DEFINER` RPC `log_admin_auth_event` (so request code never needs the service-role key). `tests/integration/rls.test.ts` covers the cross-tenant denial case.
 
-**Data model:** core tables are `public.tenants` (a **tenant row == a wave/cohort** — there is no separate "waves" table; scope member data by `tenant_id`), `public.admin_profiles`, `public.students` (the member roster; `status` `pending`→active, `tenant_id`, `user_id` FK to `auth.users`), `public.instructors`, and the `admin_auth_events` audit log. Migrations are numbered `0001…0007`; later ones add password reset, admin management, instructors, members, and the member-removed audit reason.
+**Data model:** core tables are `public.tenants` (a **tenant row == a wave/cohort** — there is no separate "waves" table; scope member data by `tenant_id`), `public.admin_profiles`, `public.students` (the member roster; `status` `pending`→active, `tenant_id`, `user_id` FK to `auth.users`), `public.instructors`, the wave-content tables (`wave_weeks`, `wave_materials`, `wave_assignments`, `wave_submissions` — all `tenant_id`-scoped, feature 008), `error_logs` (feature 009), and the `admin_auth_events` audit log. Migrations are numbered `0001…0015` (apply in order); later ones add password reset, admin management, instructors, members, waves/weeks/materials/assignments, error logging, member-removed/reassigned audit reasons, own-row student select, and (0015) widening instructor SELECT so authenticated students can read the instructor directory shown on their Home — instructor **writes stay admin-only** (the table has no `tenant_id`; it is global display data, not wave-scoped, so this is not a wave-isolation concern).
 
 **Domain logic (`lib/`):** member features in `lib/members/` (`create`, `csv` bulk-import parse/validate, `qr` QR-SVG generation, `scan` decoded-text→in-app-path validation, `validation`); instructor features in `lib/instructors/` (`image` Storage URL/upload, `sanitize` rich-text bio via `sanitize-html`, `validation`). `lib/siteUrl.ts` is the single source of truth for the public origin used in QR codes and email redirects.
 
@@ -99,6 +100,7 @@ The app is backed by **Supabase** (Postgres + Auth + Storage). There are no Next
 - `lib/panels.ts` — `Panel` type and `PANELS` constant. `panel.home` is **always derived** as `` `/${panel.id}` `` — never hand-written. This is the single source of truth that makes cross-panel link leakage structurally impossible.
 - `lib/strings.ts` — flat English UI copy constants. All user-facing strings must come from here; no inline string literals in components.
 - `lib/adminNav.tsx` — the admin sidebar `navItems` (single source of truth shared by every admin route's `DashboardShell`).
+- `lib/students/nav.tsx` — `buildStudentNav(tenantId)` builds the student sidebar: a **Home** entry plus a collapsible **Weeks** group whose children are the caller's wave's weeks (`wave_weeks` ordered by `position`, numbered "Week N" with the week's name as a `sublabel`). RLS-bounded — never lists another wave's weeks. Called by both the Home page and the per-week page.
 
 ### Brand tokens (`app/globals.css`)
 
@@ -158,5 +160,6 @@ persistent sessions) and 008 (wave management) are merged; 009 (error logging �
 central `error_logs` table capturing every unexpected error, admin-only viewing)
 is merged; 010 (student Home & Weeks navigation — rename Dashboard→Home with a
 personalized greeting, a collapsible Weeks sidebar surfacing each week's Resources
-and Assignments, and instructors shown on Home) is the active feature branch.
+and Assignments, and instructors shown on Home) is merged. No feature branch is
+currently active.
 <!-- SPECKIT END -->
