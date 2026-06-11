@@ -70,7 +70,7 @@ describe("Student sign-in page", () => {
 
   it("renders the Meska logo", () => {
     render(<StudentHome />);
-    expect(screen.getByAltText(/meska/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /meska/i })).toBeInTheDocument();
   });
 
   it("contains no link to the admin panel (panel isolation)", () => {

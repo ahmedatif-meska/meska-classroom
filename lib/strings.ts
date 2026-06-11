@@ -457,7 +457,10 @@ const strings = {
   studentForbidden: "You don't have permission to do that.",
 
   // Student — sign in (email + password)
-  studentSignInSubtitle: "Sign in with your email and password",
+  studentSignInSubtitle:
+    "Sign in with your email and password to access your learning portal.",
+  studentSignInBackgroundAlt: "Academic background illustration",
+  studentForgotPasswordLabel: "Forgot Password?",
   studentEmailRequired: "Email and password are required.",
   studentAuthFailed: "Invalid email or password.",
   studentSigningIn: "Signing in…",

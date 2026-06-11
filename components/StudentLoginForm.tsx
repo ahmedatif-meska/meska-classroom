@@ -7,7 +7,7 @@ import strings from "@/lib/strings";
 const initialState: StudentSignInState = {};
 
 const inputClass =
-  "rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-base text-ink placeholder:text-slate-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+  "rounded-lg border-none bg-slate-100 px-4 py-3 text-base text-ink placeholder:text-slate-400 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
 
 export default function StudentLoginForm() {
   const [state, formAction, pending] = useActionState(
@@ -16,7 +16,7 @@ export default function StudentLoginForm() {
   );
 
   return (
-    <form className="mt-8 flex flex-col gap-5" action={formAction}>
+    <form className="mt-8 flex flex-col gap-5 text-left" action={formAction}>
       {state.error ? (
         <p
           role="alert"
@@ -41,9 +41,17 @@ export default function StudentLoginForm() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor="password" className="text-sm font-bold text-ink">
-          {strings.passwordLabel}
-        </label>
+        <div className="flex items-center justify-between">
+          <label htmlFor="password" className="text-sm font-bold text-ink">
+            {strings.passwordLabel}
+          </label>
+          <a
+            href="#"
+            className="text-[11px] font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            {strings.studentForgotPasswordLabel}
+          </a>
+        </div>
         <input
           id="password"
           name="password"
@@ -58,12 +66,12 @@ export default function StudentLoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-2 rounded-lg bg-brand px-6 py-3 text-base font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60"
+        className="mt-2 rounded-lg bg-brand px-6 py-4 text-base font-semibold text-white shadow-md transition-all duration-200 hover:opacity-90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-60"
       >
         {pending ? strings.studentSigningIn : strings.studentSignInLabel}
       </button>
 
-      <p className="text-center text-sm text-slate-500">
+      <p className="text-center text-[11px] italic text-slate-500">
         {strings.studentLoginIdIsEmailNote}
       </p>
     </form>

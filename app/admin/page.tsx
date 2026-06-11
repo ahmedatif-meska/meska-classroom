@@ -1,5 +1,6 @@
 import strings from "@/lib/strings";
 import AdminLoginForm from "@/components/AdminLoginForm";
+import BrandHeader from "@/components/BrandHeader";
 
 function LockIcon() {
   return (
@@ -22,7 +23,10 @@ function LockIcon() {
 
 export default function AdminHome() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen flex-col">
+      <BrandHeader homeHref="/admin" />
+
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-10">
     <div className="w-full max-w-md">
       <div className="rounded-2xl bg-surface p-8 shadow-sm sm:p-10">
         <div className="flex justify-center">
@@ -45,6 +49,7 @@ export default function AdminHome() {
         {strings.adminHelpNote}
       </p>
     </div>
-    </main>
+      </main>
+    </div>
   );
 }
