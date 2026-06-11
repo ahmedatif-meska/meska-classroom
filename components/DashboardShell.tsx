@@ -88,6 +88,9 @@ export type NavItem = {
   label: string;
   href: string;
   icon?: React.ReactNode;
+  // Optional secondary line shown under `label` (e.g. a week's name beneath
+  // "Week 1"). Truncates so it never breaks the sidebar layout.
+  sublabel?: string;
   // When present, the item renders as a collapsible disclosure group whose
   // children are nested links. An empty array renders `childrenEmptyLabel`.
   children?: NavItem[];
@@ -150,7 +153,15 @@ function NavGroup({
                       : `${LINK_BASE} text-ink hover:bg-slate-50`
                   }
                 >
-                  {child.label}
+                  {child.icon}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{child.label}</span>
+                    {child.sublabel ? (
+                      <span className="truncate text-xs font-normal text-slate-400">
+                        {child.sublabel}
+                      </span>
+                    ) : null}
+                  </span>
                 </Link>
               );
             })

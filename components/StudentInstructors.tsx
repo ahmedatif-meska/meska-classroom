@@ -62,7 +62,7 @@ export default async function StudentInstructors() {
           {strings.studentInstructorsEmptyNote}
         </p>
       ) : (
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 flex flex-col gap-4">
           {instructors.map((row) => (
             <article
               key={row.id}

@@ -43,6 +43,27 @@ function WeeksIcon() {
   );
 }
 
+// Pretty per-week marker shown before "Week N" in the dropdown — an open book.
+function WeekItemIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="shrink-0 text-brand"
+    >
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
+
 type WeekRow = { id: string; title: string | null; position: number };
 
 /**
@@ -70,10 +91,18 @@ export async function buildStudentNav(
       .select("id, title, position")
       .eq("tenant_id", tenantId)
       .order("position", { ascending: true });
-    children = ((data ?? []) as WeekRow[]).map((w) => ({
-      label: w.title || `${strings.weekDefaultTitle} ${w.position}`,
-      href: `/student/dashboard/weeks/${w.id}`,
-    }));
+    // The dropdown lists weeks by number ("Week 1", "Week 2", …) with a pretty
+    // icon; the week's own name (when set) shows as a secondary line beneath.
+    children = ((data ?? []) as WeekRow[]).map((w) => {
+      const numbered = `${strings.weekDefaultTitle} ${w.position}`;
+      const name = w.title?.trim();
+      return {
+        label: numbered,
+        sublabel: name && name !== numbered ? name : undefined,
+        href: `/student/dashboard/weeks/${w.id}`,
+        icon: <WeekItemIcon />,
+      };
+    });
   }
 
   const weeks: NavItem = {

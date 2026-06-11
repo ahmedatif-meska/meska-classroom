@@ -26,16 +26,24 @@ describe("buildStudentNav", () => {
     expect(nav[1].children).toBeDefined();
   });
 
-  it("maps weeks to child links in position order, labelling untitled weeks as 'Week N'", async () => {
+  it("numbers weeks ('Week N') in position order, with the week's name as a sublabel", async () => {
     weeks = [
       { id: "w1", title: null, position: 1 },
       { id: "w2", title: "Prompting", position: 2 },
     ];
     const nav = await buildStudentNav("wave-A");
-    expect(nav[1].children).toEqual([
-      { label: "Week 1", href: "/student/dashboard/weeks/w1" },
-      { label: "Prompting", href: "/student/dashboard/weeks/w2" },
+    const children = nav[1].children!;
+    // Numbered labels (not the custom title) drive the dropdown.
+    expect(children.map((c) => c.label)).toEqual(["Week 1", "Week 2"]);
+    expect(children.map((c) => c.href)).toEqual([
+      "/student/dashboard/weeks/w1",
+      "/student/dashboard/weeks/w2",
     ]);
+    // The week's own name appears as a secondary line when set.
+    expect(children[0].sublabel).toBeUndefined();
+    expect(children[1].sublabel).toBe("Prompting");
+    // Each item has a pretty icon.
+    expect(children[0].icon).toBeDefined();
     // Scoped to the caller's wave.
     expect(eq).toHaveBeenCalledWith("tenant_id", "wave-A");
     expect(order).toHaveBeenCalledWith("position", { ascending: true });
