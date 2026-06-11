@@ -4,6 +4,7 @@ import {
   validateMaterialFile,
   validateSubmissionFile,
   extensionForType,
+  isMaterialObjectPath,
   MAX_FILE_BYTES,
 } from "@/lib/waves/validation";
 import strings from "@/lib/strings";
@@ -97,6 +98,39 @@ describe("validateSubmissionFile", () => {
     expect(validateSubmissionFile({ type: "image/png", size: 10 }).ok).toBe(
       false
     );
+  });
+});
+
+describe("isMaterialObjectPath (browser→Storage direct-upload path check)", () => {
+  const UUID = "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b";
+
+  it("accepts a well-formed material path inside the wave/week", () => {
+    expect(isMaterialObjectPath(`w1/wk1/${UUID}.pdf`, "w1", "wk1", "material")).toBe(true);
+    expect(isMaterialObjectPath(`w1/wk1/${UUID}.pptx`, "w1", "wk1", "material")).toBe(true);
+  });
+
+  it("accepts an assignment path only with the assignment- prefix", () => {
+    expect(
+      isMaterialObjectPath(`w1/wk1/assignment-${UUID}.pdf`, "w1", "wk1", "assignment")
+    ).toBe(true);
+    expect(isMaterialObjectPath(`w1/wk1/${UUID}.pdf`, "w1", "wk1", "assignment")).toBe(false);
+    expect(
+      isMaterialObjectPath(`w1/wk1/assignment-${UUID}.pdf`, "w1", "wk1", "material")
+    ).toBe(false);
+  });
+
+  it("rejects a path pointing at another wave or week (isolation invariant)", () => {
+    expect(isMaterialObjectPath(`w2/wk1/${UUID}.pdf`, "w1", "wk1", "material")).toBe(false);
+    expect(isMaterialObjectPath(`w1/wk2/${UUID}.pdf`, "w1", "wk1", "material")).toBe(false);
+  });
+
+  it("rejects traversal, extra segments, bad names and bad extensions", () => {
+    expect(isMaterialObjectPath(`w1/wk1/../${UUID}.pdf`, "w1", "wk1", "material")).toBe(false);
+    expect(isMaterialObjectPath(`w1/wk1/x/${UUID}.pdf`, "w1", "wk1", "material")).toBe(false);
+    expect(isMaterialObjectPath("w1/wk1/evil.pdf", "w1", "wk1", "material")).toBe(false);
+    expect(isMaterialObjectPath(`w1/wk1/${UUID}.exe`, "w1", "wk1", "material")).toBe(false);
+    expect(isMaterialObjectPath(`w1/wk1/${UUID}.docx`, "w1", "wk1", "material")).toBe(false);
+    expect(isMaterialObjectPath("", "w1", "wk1", "material")).toBe(false);
   });
 });
 

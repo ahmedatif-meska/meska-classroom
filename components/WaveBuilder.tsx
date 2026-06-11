@@ -16,8 +16,15 @@ import {
 import {
   validateWaveFields,
   validateMaterialFile,
+  extensionForType,
   WAVE_TYPES,
 } from "@/lib/waves/validation";
+import {
+  MATERIALS_BUCKET,
+  materialPath,
+  assignmentPath,
+} from "@/lib/waves/files";
+import { createClient } from "@/lib/supabase/client";
 import RichTextEditor from "@/components/RichTextEditor";
 import type { WaveRow, AdminWeek } from "@/lib/waves/content";
 import strings from "@/lib/strings";
@@ -275,6 +282,7 @@ export default function WaveBuilder({
         assignments: w.assignments.map((a) => ({ ...a })),
       }));
 
+      const supabase = createClient();
       for (const week of working) {
         if (!week.savedId) {
           const wfd = new FormData();
@@ -294,7 +302,10 @@ export default function WaveBuilder({
           if (!wres.saved) return fail(strings.wavesWeekSaveFailed, working);
         }
 
-        // Materials: upload each not-yet-saved file (filename = title).
+        // Materials: upload each not-yet-saved file (filename = title). The
+        // bytes go straight from the browser to Storage — Server Action request
+        // bodies are capped (~4.5 MB on Vercel), so the action only receives
+        // the uploaded object's path.
         for (const m of week.materials) {
           if (m.existingId || m.saved) continue;
           if (!m.file) {
@@ -306,18 +317,28 @@ export default function WaveBuilder({
             size: m.file.size,
           });
           if (!chk.ok) return fail(chk.error, working);
+          const path = materialPath(
+            waveId,
+            week.savedId,
+            crypto.randomUUID(),
+            extensionForType(m.file.type)
+          );
+          const { error: upErr } = await supabase.storage
+            .from(MATERIALS_BUCKET)
+            .upload(path, m.file, { contentType: m.file.type, upsert: false });
+          if (upErr) return fail(strings.wavesMaterialUploadFailed, working);
           const mfd = new FormData();
           mfd.set("wave_id", waveId);
           mfd.set("week_id", week.savedId);
           mfd.set("title", m.title);
-          mfd.set("file", m.file);
+          mfd.set("file_path", path);
           const mres = await addMaterial({}, mfd);
           if (!mres.saved)
             return fail(mres.error ?? strings.wavesMaterialSaveFailed, working);
           m.saved = true;
         }
 
-        // Assignments: same as materials (addAssignment uses the filename).
+        // Assignments: same as materials (the title is the original filename).
         for (const a of week.assignments) {
           if (a.existingId || a.saved) continue;
           if (!a.file) {
@@ -329,10 +350,21 @@ export default function WaveBuilder({
             size: a.file.size,
           });
           if (!chk.ok) return fail(chk.error, working);
+          const path = assignmentPath(
+            waveId,
+            week.savedId,
+            crypto.randomUUID(),
+            extensionForType(a.file.type)
+          );
+          const { error: upErr } = await supabase.storage
+            .from(MATERIALS_BUCKET)
+            .upload(path, a.file, { contentType: a.file.type, upsert: false });
+          if (upErr) return fail(strings.wavesMaterialUploadFailed, working);
           const afd = new FormData();
           afd.set("wave_id", waveId);
           afd.set("week_id", week.savedId);
-          afd.set("file", a.file);
+          afd.set("title", a.title);
+          afd.set("file_path", path);
           const ares = await addAssignment({}, afd);
           if (!ares.saved)
             return fail(ares.error ?? strings.wavesAssignmentSaveFailed, working);

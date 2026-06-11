@@ -92,3 +92,43 @@ export function validateSubmissionFile(
     strings.studentSubmissionInvalid
   );
 }
+
+/** Allowed object-name extensions, derived from the MIME allowlists. */
+export const MATERIAL_EXTENSIONS = ALLOWED_MATERIAL_TYPES.map(
+  (t) => EXTENSIONS[t]
+);
+export const SUBMISSION_EXTENSIONS = ALLOWED_SUBMISSION_TYPES.map(
+  (t) => EXTENSIONS[t]
+);
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Validates a client-supplied storage object path for a material or an
+ * admin-uploaded assignment file. Files upload straight from the browser to
+ * Storage (Server Action request bodies are capped at ~4.5 MB on Vercel), so
+ * the action only receives this path and MUST verify it before recording it:
+ * exactly `‹waveId›/‹weekId›/(assignment-)‹uuid›.‹ext›` — wave id first
+ * (isolation invariant), a UUID object name, and an allowed extension.
+ */
+export function isMaterialObjectPath(
+  path: string,
+  waveId: string,
+  weekId: string,
+  kind: "material" | "assignment"
+): boolean {
+  if (!waveId || !weekId) return false;
+  const parts = path.split("/");
+  if (parts.length !== 3 || parts[0] !== waveId || parts[1] !== weekId) {
+    return false;
+  }
+  const prefix = kind === "assignment" ? "assignment-" : "";
+  if (!parts[2].startsWith(prefix)) return false;
+  const name = parts[2].slice(prefix.length);
+  const dot = name.lastIndexOf(".");
+  if (dot < 0) return false;
+  return (
+    UUID_RE.test(name.slice(0, dot)) &&
+    MATERIAL_EXTENSIONS.includes(name.slice(dot + 1))
+  );
+}

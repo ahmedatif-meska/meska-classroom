@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import strings from "@/lib/strings";
 
+const upload = vi.hoisted(() =>
+  vi.fn(async () => ({ data: { path: "p" }, error: null }))
+);
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({ storage: { from: () => ({ upload }) } }),
+}));
+
 const actions = vi.hoisted(() => ({
   createWave: vi.fn(async () => ({
     saved: true,
@@ -139,9 +146,15 @@ describe("WaveBuilder — create", () => {
     );
     expect(actions.addMaterial.mock.calls[0][1].get("week_id")).toBe("wk1");
     expect(actions.addAssignment.mock.calls[0][1].get("week_id")).toBe("wk1");
-    expect(
-      (actions.addAssignment.mock.calls[0][1].get("file") as File).name
-    ).toBe("hw.pdf");
+    // The file bytes were uploaded browser→Storage; the actions get the path.
+    expect(upload).toHaveBeenCalledTimes(2);
+    expect(actions.addMaterial.mock.calls[0][1].get("file_path")).toMatch(
+      /^w1\/wk1\/[0-9a-f-]{36}\.pdf$/
+    );
+    expect(actions.addAssignment.mock.calls[0][1].get("file_path")).toMatch(
+      /^w1\/wk1\/assignment-[0-9a-f-]{36}\.pdf$/
+    );
+    expect(actions.addAssignment.mock.calls[0][1].get("title")).toBe("hw.pdf");
   });
 });
 

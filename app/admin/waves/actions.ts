@@ -5,16 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { assertAdminSession } from "@/lib/auth/adminGate";
 import {
   validateWaveFields,
-  validateMaterialFile,
-  extensionForType,
+  isMaterialObjectPath,
 } from "@/lib/waves/validation";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
-import {
-  MATERIALS_BUCKET,
-  SUBMISSIONS_BUCKET,
-  materialPath,
-  assignmentPath,
-} from "@/lib/waves/files";
+import { MATERIALS_BUCKET, SUBMISSIONS_BUCKET } from "@/lib/waves/files";
 import { invalidate } from "@/lib/cache/redis";
 import { adminListKey, studentKey } from "@/lib/cache/keys";
 import { type WaveRow } from "@/lib/waves/content";
@@ -323,32 +317,25 @@ export async function addMaterial(
     return { error: strings.wavesMaterialSaveFailed };
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0)
+  // The file itself was uploaded straight from the browser to Storage (Server
+  // Action bodies are capped at ~4.5 MB on Vercel); the action only records the
+  // object's path after verifying it points inside THIS wave + week.
+  const filePath = formData.get("file_path");
+  if (
+    typeof filePath !== "string" ||
+    !isMaterialObjectPath(filePath, waveId, weekId, "material")
+  ) {
     return { error: strings.wavesMaterialInvalid };
-
-  const check = validateMaterialFile({ type: file.type, size: file.size });
-  if (!check.ok) return { error: check.error };
-
-  const path = materialPath(
-    waveId,
-    weekId,
-    crypto.randomUUID(),
-    extensionForType(file.type)
-  );
-  const { error: upErr } = await supabase.storage
-    .from(MATERIALS_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (upErr) return { error: strings.wavesMaterialUploadFailed };
+  }
 
   const { error } = await supabase.from("wave_materials").insert({
     tenant_id: waveId,
     week_id: weekId,
     title: title.trim(),
-    file_path: path,
+    file_path: filePath,
   });
   if (error) {
-    await removeObjects(supabase, MATERIALS_BUCKET, [path]);
+    await removeObjects(supabase, MATERIALS_BUCKET, [filePath]);
     return { error: strings.wavesMaterialSaveFailed };
   }
 
@@ -404,37 +391,37 @@ export async function addAssignment(
 
   const waveId = formData.get("wave_id");
   const weekId = formData.get("week_id");
-  if (typeof waveId !== "string" || !waveId || typeof weekId !== "string" || !weekId)
+  const title = formData.get("title");
+  if (
+    typeof waveId !== "string" ||
+    !waveId ||
+    typeof weekId !== "string" ||
+    !weekId ||
+    typeof title !== "string" ||
+    !title.trim()
+  ) {
     return { error: strings.wavesAssignmentSaveFailed };
+  }
 
-  // An assignment is now an admin-uploaded file (like a material); its title is
-  // the original filename. Students still submit their own work separately.
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0)
+  // An assignment is an admin-uploaded file (like a material); its title is the
+  // original filename, sent by the client alongside the already-uploaded
+  // object's path (browser→Storage direct upload; see addMaterial).
+  const filePath = formData.get("file_path");
+  if (
+    typeof filePath !== "string" ||
+    !isMaterialObjectPath(filePath, waveId, weekId, "assignment")
+  ) {
     return { error: strings.wavesMaterialInvalid };
-
-  const check = validateMaterialFile({ type: file.type, size: file.size });
-  if (!check.ok) return { error: check.error };
-
-  const path = assignmentPath(
-    waveId,
-    weekId,
-    crypto.randomUUID(),
-    extensionForType(file.type)
-  );
-  const { error: upErr } = await supabase.storage
-    .from(MATERIALS_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: false });
-  if (upErr) return { error: strings.wavesMaterialUploadFailed };
+  }
 
   const { error } = await supabase.from("wave_assignments").insert({
     tenant_id: waveId,
     week_id: weekId,
-    title: file.name,
-    file_path: path,
+    title: title.trim(),
+    file_path: filePath,
   });
   if (error) {
-    await removeObjects(supabase, MATERIALS_BUCKET, [path]);
+    await removeObjects(supabase, MATERIALS_BUCKET, [filePath]);
     return { error: strings.wavesAssignmentSaveFailed };
   }
 

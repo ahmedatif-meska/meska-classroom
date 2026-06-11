@@ -5,7 +5,12 @@ import {
   submitAssignment,
   type SubmissionState,
 } from "@/app/student/dashboard/actions";
-import { validateSubmissionFile } from "@/lib/waves/validation";
+import {
+  validateSubmissionFile,
+  extensionForType,
+} from "@/lib/waves/validation";
+import { SUBMISSIONS_BUCKET, submissionPath } from "@/lib/waves/files";
+import { createClient } from "@/lib/supabase/client";
 import strings from "@/lib/strings";
 
 const initialState: SubmissionState = {};
@@ -38,6 +43,41 @@ export default function SubmitAssignment({
         return prev;
       }
       setClientError(null);
+      // Upload straight from the browser to Storage (Server Action request
+      // bodies are capped at ~4.5 MB on Vercel); the action then records the
+      // object's path. RLS confines the write to the caller's own slot.
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const tenantId =
+        (user?.app_metadata?.tenant_id as string | undefined) ?? "";
+      const { data: student } = user
+        ? await supabase
+            .from("students")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle()
+        : { data: null };
+      if (!tenantId || !student) {
+        setClientError(strings.studentSubmissionFailed);
+        return prev;
+      }
+      const path = submissionPath(
+        tenantId,
+        assignmentId,
+        student.id,
+        extensionForType(file.type)
+      );
+      const { error: upErr } = await supabase.storage
+        .from(SUBMISSIONS_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (upErr) {
+        setClientError(strings.studentSubmissionFailed);
+        return prev;
+      }
+      formData.delete("file");
+      formData.set("file_path", path);
       const result = await submitAssignment(prev, formData);
       if (result.saved && fileRef.current) fileRef.current.value = "";
       return result;

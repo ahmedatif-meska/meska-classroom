@@ -3,11 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { assertStudentSession } from "@/lib/auth/studentGate";
-import {
-  validateSubmissionFile,
-  extensionForType,
-} from "@/lib/waves/validation";
-import { SUBMISSIONS_BUCKET, submissionPath } from "@/lib/waves/files";
+import { SUBMISSION_EXTENSIONS } from "@/lib/waves/validation";
+import { submissionPath } from "@/lib/waves/files";
 import strings from "@/lib/strings";
 
 export type SubmissionState = { error?: string; saved?: boolean };
@@ -39,12 +36,14 @@ export async function submitAssignment(
     return { error: strings.studentSubmissionFailed };
   }
 
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
+  // The file itself was uploaded straight from the browser to Storage (Server
+  // Action bodies are capped at ~4.5 MB on Vercel); the action receives only
+  // the object's path and verifies below that it is EXACTLY the caller's own
+  // submission slot for this assignment.
+  const filePath = formData.get("file_path");
+  if (typeof filePath !== "string" || !filePath) {
     return { error: strings.studentSubmissionInvalid };
   }
-  const check = validateSubmissionFile({ type: file.type, size: file.size });
-  if (!check.ok) return { error: check.error };
 
   // Resolve the caller's own student row (RLS lets a student read their own wave).
   const { data: student } = await supabase
@@ -62,23 +61,17 @@ export async function submitAssignment(
     .maybeSingle();
   if (!assignment) return { error: strings.studentForbidden };
 
-  const path = submissionPath(
-    tenantId,
-    assignmentId,
-    student.id,
-    extensionForType(file.type)
+  const ownSlot = SUBMISSION_EXTENSIONS.some(
+    (ext) => filePath === submissionPath(tenantId, assignmentId, student.id, ext)
   );
-  const { error: upErr } = await supabase.storage
-    .from(SUBMISSIONS_BUCKET)
-    .upload(path, file, { contentType: file.type, upsert: true });
-  if (upErr) return { error: strings.studentSubmissionFailed };
+  if (!ownSlot) return { error: strings.studentSubmissionInvalid };
 
   const { error } = await supabase.from("wave_submissions").upsert(
     {
       tenant_id: tenantId,
       assignment_id: assignmentId,
       student_id: student.id,
-      file_path: path,
+      file_path: filePath,
       submitted_at: new Date().toISOString(),
     },
     { onConflict: "assignment_id,student_id" }
