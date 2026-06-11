@@ -10,15 +10,19 @@ import strings from "@/lib/strings";
  * façade) so a week with many videos never loads N third-party frames on open —
  * protecting mobile Core Web Vitals (Principle V). The embed URL is always built
  * server-side from the stored Drive file id, never from raw admin input.
+ *
+ * Preview-only: the player offers no "open in Drive" link, and the iframe is
+ * sandboxed WITHOUT `allow-downloads`/`allow-popups`, so the embedded Drive frame
+ * cannot start a download or pop out to the Drive page. (True download protection
+ * also requires the Drive file's share setting "viewers can download" to be OFF —
+ * the bytes are served by Google, not by us.)
  */
 export default function WeekVideoPlayer({
   title,
   embedUrl,
-  watchUrl,
 }: {
   title: string;
   embedUrl: string;
-  watchUrl: string;
 }) {
   const [playing, setPlaying] = useState(false);
 
@@ -33,6 +37,7 @@ export default function WeekVideoPlayer({
             allow="autoplay; fullscreen"
             allowFullScreen
             referrerPolicy="no-referrer"
+            sandbox="allow-scripts allow-same-origin allow-presentation"
             className="absolute inset-0 h-full w-full"
           />
         ) : (
@@ -56,18 +61,8 @@ export default function WeekVideoPlayer({
           </button>
         )}
       </div>
-      <figcaption className="flex items-center justify-between gap-3">
-        <span className="min-w-0 truncate text-sm font-semibold text-ink">
-          {title}
-        </span>
-        <a
-          href={watchUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 text-xs font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-        >
-          {strings.studentVideoOpenInDrive}
-        </a>
+      <figcaption className="truncate text-sm font-semibold text-ink">
+        {title}
       </figcaption>
     </figure>
   );

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
 import { signedUrl, MATERIALS_BUCKET } from "@/lib/waves/files";
-import { driveEmbedUrl, driveWatchUrl } from "@/lib/waves/video";
+import { driveEmbedUrl } from "@/lib/waves/video";
 import SubmitAssignment from "@/components/SubmitAssignment";
 import WeekVideoPlayer from "@/components/WeekVideoPlayer";
 import WeekFeedback from "@/components/WeekFeedback";
@@ -177,7 +177,6 @@ export default async function StudentWeekContent({
                 <WeekVideoPlayer
                   title={v.title}
                   embedUrl={driveEmbedUrl(v.drive_file_id)}
-                  watchUrl={driveWatchUrl(v.drive_file_id)}
                 />
               </li>
             ))}
