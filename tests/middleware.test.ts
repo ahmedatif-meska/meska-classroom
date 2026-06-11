@@ -1,12 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Vary the authenticated user per test.
-let currentUser: { app_metadata?: { role?: string } } | null = null;
+// Vary the authenticated user / stored session per test.
+let currentUser: {
+  app_metadata?: { role?: string; tenant_id?: string };
+} | null = null;
+let currentSession: { access_token: string } | null = null;
+const refreshSession = vi.fn(async () => ({ data: {}, error: null }));
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: vi.fn(() => ({
     auth: {
       getUser: async () => ({ data: { user: currentUser } }),
+      getSession: async () => ({ data: { session: currentSession } }),
+      refreshSession,
     },
   })),
 }));
@@ -14,8 +20,18 @@ vi.mock("@supabase/ssr", () => ({
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 
+/** A structurally valid JWT whose payload carries the given wave claim. */
+function tokenWithTenant(tenantId?: string) {
+  const payload = Buffer.from(
+    JSON.stringify({ app_metadata: tenantId ? { tenant_id: tenantId } : {} })
+  ).toString("base64url");
+  return `header.${payload}.signature`;
+}
+
 beforeEach(() => {
   currentUser = null;
+  currentSession = null;
+  refreshSession.mockClear();
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
 });
@@ -79,5 +95,38 @@ describe("middleware student-route protection / session reopen (US1)", () => {
       new NextRequest("http://localhost/student/dashboard")
     );
     expect(res.headers.get("location")).toBe("http://localhost/student");
+  });
+});
+
+describe("middleware wave-claim sync (reassign reflects immediately)", () => {
+  it("refreshes the session when the token's wave claim no longer matches the record", async () => {
+    currentUser = { app_metadata: { role: "student", tenant_id: "wave-12" } };
+    currentSession = { access_token: tokenWithTenant("old-wave") };
+    const res = await proxy(
+      new NextRequest("http://localhost/student/dashboard")
+    );
+    expect(refreshSession).toHaveBeenCalledTimes(1);
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("does NOT refresh when the token claim already matches the record", async () => {
+    currentUser = { app_metadata: { role: "student", tenant_id: "wave-12" } };
+    currentSession = { access_token: tokenWithTenant("wave-12") };
+    await proxy(new NextRequest("http://localhost/student/dashboard"));
+    expect(refreshSession).not.toHaveBeenCalled();
+  });
+
+  it("does nothing without a stored session", async () => {
+    currentUser = { app_metadata: { role: "student", tenant_id: "wave-12" } };
+    currentSession = null;
+    await proxy(new NextRequest("http://localhost/student/dashboard"));
+    expect(refreshSession).not.toHaveBeenCalled();
+  });
+
+  it("never runs the claim sync for admins (their reads don't depend on a wave claim)", async () => {
+    currentUser = { app_metadata: { role: "admin" } };
+    currentSession = { access_token: tokenWithTenant("anything") };
+    await proxy(new NextRequest("http://localhost/admin/dashboard"));
+    expect(refreshSession).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { withPersistentMaxAge } from "@/lib/supabase/cookieOptions";
+import { tenantClaimIsStale } from "@/lib/auth/claimsSync";
 
 /**
  * Refreshes the Supabase session and protects panel routes server-side. The
@@ -68,6 +69,24 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = isStudentRoute ? "/student" : "/admin";
     return NextResponse.redirect(url);
+  }
+
+  // A reassigned member may hold a still-valid token carrying their OLD wave
+  // claim (RLS reads the claim, not the students row), which would hide the new
+  // wave's data for up to the token lifetime. getUser() above returned the
+  // CURRENT record — when the token claim diverges from it, mint a fresh token
+  // now so this very request renders with the new wave. Only the proxy can do
+  // this: it owns the auth cookie writes (Server Components are read-only).
+  if (isStudentRoute && role === "student") {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (
+      session &&
+      tenantClaimIsStale(session.access_token, user?.app_metadata?.tenant_id)
+    ) {
+      await supabase.auth.refreshSession();
+    }
   }
 
   return response;
