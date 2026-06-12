@@ -9,6 +9,8 @@ import strings from "@/lib/strings";
 
 export type WaveType = "online" | "offline";
 
+export type WaveStatus = "not_started" | "in_progress" | "completed";
+
 export type WaveFieldValidation =
   | { ok: true; name: string; type: WaveType }
   | { ok: false; error: string };
@@ -16,6 +18,24 @@ export type WaveFieldValidation =
 export type FileValidation = { ok: true } | { ok: false; error: string };
 
 export const WAVE_TYPES = ["online", "offline"] as const;
+
+/** Admin-controlled lifecycle states for a wave (FR-status). New waves default
+ * to "not_started". Order matches how they read on a timeline. */
+export const WAVE_STATUSES = [
+  "not_started",
+  "in_progress",
+  "completed",
+] as const;
+
+/** Coerce an arbitrary form value to a valid status, defaulting to not_started. */
+export function normalizeWaveStatus(
+  value: FormDataEntryValue | null | undefined
+): WaveStatus {
+  const v = typeof value === "string" ? value : "";
+  return (WAVE_STATUSES as readonly string[]).includes(v)
+    ? (v as WaveStatus)
+    : "not_started";
+}
 
 /** A wave needs a non-empty name and a type of exactly online|offline (FR-003/FR-004). */
 export function validateWaveFields(

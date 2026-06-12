@@ -6,6 +6,7 @@ import { assertAdminSession } from "@/lib/auth/adminGate";
 import {
   validateWaveFields,
   isMaterialObjectPath,
+  normalizeWaveStatus,
 } from "@/lib/waves/validation";
 import { parseDriveFileId, MAX_VIDEO_TITLE_LEN } from "@/lib/waves/video";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
@@ -78,10 +79,11 @@ export async function createWave(
     .insert({
       name: valid.name,
       type: valid.type,
+      status: normalizeWaveStatus(formData.get("status")),
       description_html:
         sanitizeDescription(formData.get("description_html")) || null,
     })
-    .select("id, name, description_html, type, created_at")
+    .select("id, name, description_html, type, status, created_at")
     .single();
   if (error || !data) {
     await logError({
@@ -118,6 +120,11 @@ export async function updateWave(
     .update({
       name: valid.name,
       type: valid.type,
+      // Only touch status when the editor sent it, so callers that don't expose
+      // a status field (e.g. the legacy modal form) never reset it.
+      ...(formData.has("status")
+        ? { status: normalizeWaveStatus(formData.get("status")) }
+        : {}),
       description_html:
         sanitizeDescription(formData.get("description_html")) || null,
     })

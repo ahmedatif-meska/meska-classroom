@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { signedUrl, MATERIALS_BUCKET, SUBMISSIONS_BUCKET } from "@/lib/waves/files";
+import type { WaveStatus } from "@/lib/waves/validation";
 
 /**
  * Shared wave-content shapes + loader. The admin wave page (server) and the
@@ -14,6 +15,7 @@ export type WaveRow = {
   name: string;
   description_html: string | null;
   type: "online" | "offline";
+  status: WaveStatus;
   created_at: string;
 };
 

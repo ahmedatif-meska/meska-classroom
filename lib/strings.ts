@@ -340,6 +340,21 @@ const strings = {
   waveNoDescription: "No description",
   waveOpenLabel: "Open",
   waveWeeksLabel: "weeks",
+  waveStudentsLabel: "students",
+  waveStudentLabel: "student",
+
+  // Admin — Waves (status)
+  waveStatusLabel: "Status",
+  waveStatusNotStarted: "Not started",
+  waveStatusInProgress: "In progress",
+  waveStatusCompleted: "Completed",
+
+  // Admin — Waves (search & filters)
+  wavesSearchPlaceholder: "Search waves by name",
+  wavesFilterCategoryLabel: "Category",
+  wavesFilterStatusLabel: "Status",
+  wavesFilterAll: "All",
+  wavesNoMatches: "No waves match your filters",
 
   // Admin — Waves (create/edit form)
   waveFormAddTitle: "Create wave",

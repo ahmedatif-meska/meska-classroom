@@ -1,8 +1,8 @@
 import Link from "next/link";
 import DashboardShell from "@/components/DashboardShell";
 import AdminSidebarFooter from "@/components/AdminSidebarFooter";
-import WaveCard from "@/components/WaveCard";
-import type { WaveRow } from "@/components/WaveForm";
+import WavesBrowser from "@/components/WavesBrowser";
+import type { WaveRow } from "@/lib/waves/content";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
 import strings from "@/lib/strings";
@@ -13,19 +13,32 @@ export default async function WavesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: waveData }, { data: weekData }] = await Promise.all([
-    supabase
-      .from("tenants")
-      .select("id, name, description_html, type, created_at")
-      .order("created_at", { ascending: false }),
-    supabase.from("wave_weeks").select("tenant_id"),
-  ]);
+  const [{ data: waveData }, { data: weekData }, { data: studentData }] =
+    await Promise.all([
+      supabase
+        .from("tenants")
+        .select("id, name, description_html, type, status, created_at")
+        .order("created_at", { ascending: false }),
+      supabase.from("wave_weeks").select("tenant_id"),
+      supabase.from("students").select("tenant_id"),
+    ]);
 
   const waves = (waveData ?? []) as WaveRow[];
   const weekCounts = new Map<string, number>();
   for (const w of weekData ?? []) {
     weekCounts.set(w.tenant_id, (weekCounts.get(w.tenant_id) ?? 0) + 1);
   }
+  const studentCounts = new Map<string, number>();
+  for (const s of studentData ?? []) {
+    if (!s.tenant_id) continue; // unassigned members aren't tied to a wave
+    studentCounts.set(s.tenant_id, (studentCounts.get(s.tenant_id) ?? 0) + 1);
+  }
+
+  const items = waves.map((wave) => ({
+    wave,
+    weekCount: weekCounts.get(wave.id) ?? 0,
+    studentCount: studentCounts.get(wave.id) ?? 0,
+  }));
 
   return (
     <DashboardShell
@@ -57,15 +70,7 @@ export default async function WavesPage() {
             {strings.wavesEmptyNote}
           </p>
         ) : (
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {waves.map((wave) => (
-              <WaveCard
-                key={wave.id}
-                wave={wave}
-                weekCount={weekCounts.get(wave.id) ?? 0}
-              />
-            ))}
-          </div>
+          <WavesBrowser items={items} />
         )}
       </div>
     </DashboardShell>

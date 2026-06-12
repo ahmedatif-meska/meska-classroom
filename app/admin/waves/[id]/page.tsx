@@ -22,7 +22,7 @@ export default async function WaveDetailPage({
 
   const { data: wave } = await supabase
     .from("tenants")
-    .select("id, name, description_html, type, created_at")
+    .select("id, name, description_html, type, status, created_at")
     .eq("id", id)
     .maybeSingle();
   if (!wave) notFound();

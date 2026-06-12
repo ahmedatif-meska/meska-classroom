@@ -22,6 +22,8 @@ import {
   validateMaterialFile,
   extensionForType,
   WAVE_TYPES,
+  WAVE_STATUSES,
+  type WaveStatus,
 } from "@/lib/waves/validation";
 import { parseDriveFileId, driveWatchUrl } from "@/lib/waves/video";
 import {
@@ -124,6 +126,12 @@ const ICONS = {
 const TYPE_LABELS: Record<(typeof WAVE_TYPES)[number], string> = {
   online: strings.waveTypeOnline,
   offline: strings.waveTypeOffline,
+};
+
+const STATUS_LABELS: Record<WaveStatus, string> = {
+  not_started: strings.waveStatusNotStarted,
+  in_progress: strings.waveStatusInProgress,
+  completed: strings.waveStatusCompleted,
 };
 
 const fileEntry = (f: File): DraftFile => ({
@@ -533,6 +541,9 @@ export default function WaveBuilder({
     existing?.wave.type ?? ""
   );
   const [html, setHtml] = useState(existing?.wave.description_html ?? "");
+  const [status, setStatus] = useState<WaveStatus>(
+    existing?.wave.status ?? "not_started"
+  );
   const [weeks, setWeeks] = useState<DraftWeek[]>(() =>
     existing ? seedWeeks(existing.weeks) : []
   );
@@ -672,6 +683,7 @@ export default function WaveBuilder({
       const basics = new FormData();
       basics.set("name", name.trim());
       basics.set("type", type);
+      basics.set("status", status);
       basics.set("description_html", html);
       if (!waveId) {
         const res = await createWave({}, basics);
@@ -855,6 +867,27 @@ export default function WaveBuilder({
               >
                 <Icon d={t === "online" ? ICONS.wifi : ICONS.wifiOff} />
                 {TYPE_LABELS[t]}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-4">
+          <legend className={labelClass}>{strings.waveStatusLabel} *</legend>
+          <div className="flex flex-wrap gap-3">
+            {WAVE_STATUSES.map((s) => (
+              <button
+                key={s}
+                type="button"
+                aria-pressed={status === s}
+                onClick={() => setStatus(s)}
+                className={`rounded-full border-2 px-6 py-2.5 text-base font-semibold transition-all active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                  status === s
+                    ? "border-brand bg-brand/10 text-brand shadow-sm"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {STATUS_LABELS[s]}
               </button>
             ))}
           </div>

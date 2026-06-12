@@ -35,3 +35,4 @@ create policy wave_videos_select on public.wave_videos
 drop policy if exists wave_videos_write on public.wave_videos;
 create policy wave_videos_write on public.wave_videos
   for all using (public.is_admin()) with check (public.is_admin());
+
