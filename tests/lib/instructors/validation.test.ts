@@ -9,24 +9,42 @@ import strings from "@/lib/strings";
 
 describe("validateInstructorFields (US2.1)", () => {
   it("rejects an empty or whitespace name", () => {
-    expect(validateInstructorFields("")).toEqual({
+    expect(validateInstructorFields("", "Lead")).toEqual({
       ok: false,
       error: strings.instructorsNameRequired,
     });
-    expect(validateInstructorFields("   ")).toEqual({
+    expect(validateInstructorFields("   ", "Lead")).toEqual({
       ok: false,
       error: strings.instructorsNameRequired,
     });
-    expect(validateInstructorFields(null)).toEqual({
+    expect(validateInstructorFields(null, "Lead")).toEqual({
       ok: false,
       error: strings.instructorsNameRequired,
     });
   });
 
-  it("accepts and trims a valid name", () => {
-    expect(validateInstructorFields("  Dr. Sarah Lee  ")).toEqual({
+  it("rejects an empty or whitespace title", () => {
+    expect(validateInstructorFields("Dr. Sarah Lee", "")).toEqual({
+      ok: false,
+      error: strings.instructorsTitleRequired,
+    });
+    expect(validateInstructorFields("Dr. Sarah Lee", "   ")).toEqual({
+      ok: false,
+      error: strings.instructorsTitleRequired,
+    });
+    expect(validateInstructorFields("Dr. Sarah Lee", null)).toEqual({
+      ok: false,
+      error: strings.instructorsTitleRequired,
+    });
+  });
+
+  it("accepts and trims a valid name + title", () => {
+    expect(
+      validateInstructorFields("  Dr. Sarah Lee  ", "  Lead AI Instructor  ")
+    ).toEqual({
       ok: true,
       name: "Dr. Sarah Lee",
+      title: "Lead AI Instructor",
     });
   });
 });

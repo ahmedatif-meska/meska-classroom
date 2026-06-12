@@ -19,8 +19,8 @@ export default async function InstructorsPage() {
   const instructors = await cached(adminListKey("instructors"), async () => {
     const { data } = await supabase
       .from("instructors")
-      .select("id, name, description_html, image_path, created_at")
-      .order("created_at", { ascending: false });
+      .select("id, name, title, description_html, image_path, created_at, position")
+      .order("position", { ascending: true });
     return (data ?? []) as InstructorRow[];
   });
 

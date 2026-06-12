@@ -15,9 +15,11 @@ import strings from "@/lib/strings";
 export type InstructorRow = {
   id: string;
   name: string;
+  title: string | null;
   description_html: string | null;
   image_path: string | null;
   created_at: string;
+  position: number;
 };
 
 const initialState: InstructorFormState = {};
@@ -196,6 +198,24 @@ export default function InstructorFormModal({
                   required
                   defaultValue={instructor?.name ?? ""}
                   placeholder={strings.instructorNamePlaceholder}
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label
+                  htmlFor={`${titleId}-title`}
+                  className="text-sm font-bold text-ink"
+                >
+                  {strings.instructorTitleLabel} *
+                </label>
+                <input
+                  id={`${titleId}-title`}
+                  name="title"
+                  type="text"
+                  required
+                  defaultValue={instructor?.title ?? ""}
+                  placeholder={strings.instructorTitlePlaceholder}
                   className={inputClass}
                 />
               </div>

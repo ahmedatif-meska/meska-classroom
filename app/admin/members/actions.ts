@@ -270,20 +270,27 @@ export async function reassignMembers(
     return { error: strings.reassignFailed };
   }
 
-  const eligible = targets.filter((t) => t.tenant_id === null);
-  let failedCount = memberIds.length - eligible.length;
+  // ids that no longer exist in the roster count as failures up front.
+  let failedCount = memberIds.length - targets.length;
   let reassignedCount = 0;
 
   const admin = createAdminClient();
-  for (const target of eligible) {
-    // Claim the row first (CAS on tenant_id null); only the winner proceeds to
-    // touch the auth claims, so two admins can never split row vs claims.
-    const { data: updated, error: rowErr } = await supabase
+  for (const target of targets) {
+    // Already in the requested wave → nothing to do.
+    if (target.tenant_id === waveId) continue;
+
+    // Claim the row first with a compare-and-swap on its CURRENT wave (null or a
+    // real tenant), so two admins can never split row vs claims — and a member is
+    // reassignable whether currently assigned or not.
+    const claim = supabase
       .from("students")
       .update({ tenant_id: waveId })
-      .eq("id", target.id)
-      .is("tenant_id", null)
-      .select("id");
+      .eq("id", target.id);
+    const { data: updated, error: rowErr } = await (
+      target.tenant_id === null
+        ? claim.is("tenant_id", null)
+        : claim.eq("tenant_id", target.tenant_id)
+    ).select("id");
     if (rowErr || !updated || updated.length === 0) {
       if (rowErr) {
         await logError({
@@ -309,11 +316,11 @@ export async function reassignMembers(
           error: claimsErr,
           context: { memberId: target.id, waveId, step: "updateClaims" },
         });
-        // Roll the row back so roster and claims never disagree; the member
-        // remains unassigned and retryable.
+        // Roll the row back to its prior wave so roster and claims never
+        // disagree; the member stays where they were and is retryable.
         const { error: revertErr } = await supabase
           .from("students")
-          .update({ tenant_id: null })
+          .update({ tenant_id: target.tenant_id })
           .eq("id", target.id);
         if (revertErr) {
           await logError({
@@ -331,8 +338,12 @@ export async function reassignMembers(
     reassignedCount += 1;
     await logEvent(supabase, target.email ?? "", "success", "member_reassigned");
     if (target.user_id) {
-      // Drop any profile cached under the new wave for this user (defensive).
+      // Drop any profile cached under the new wave for this user (defensive),
+      // and under the old wave they were moved out of.
       await invalidate(studentKey(waveId, target.user_id, "profile"));
+      if (target.tenant_id) {
+        await invalidate(studentKey(target.tenant_id, target.user_id, "profile"));
+      }
     }
   }
 

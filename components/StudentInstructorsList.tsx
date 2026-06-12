@@ -7,6 +7,7 @@ import strings from "@/lib/strings";
 export type InstructorListItem = {
   id: string;
   name: string;
+  title: string | null;
   imageUrl: string | null;
 };
 
@@ -78,7 +79,12 @@ export default function StudentInstructorsList({
             className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-surface p-4 shadow-sm"
           >
             <Avatar item={item} />
-            <h3 className="min-w-0 truncate font-bold text-ink">{item.name}</h3>
+            <div className="min-w-0">
+              <h3 className="truncate font-bold text-ink">{item.name}</h3>
+              {item.title ? (
+                <p className="truncate text-sm text-slate-500">{item.title}</p>
+              ) : null}
+            </div>
           </article>
         ))}
       </div>

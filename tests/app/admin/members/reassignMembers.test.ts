@@ -65,16 +65,23 @@ const from = vi.fn((table: string) => {
       return {
         eq: (_col: string, id: string) => {
           call.id = id;
+          const casNode = {
+            select: async () =>
+              casResults[id] ?? { data: [{ id }], error: null },
+          };
           return {
-            // Revert path awaits `.eq()` directly — a plain object resolves to
-            // itself under await, exposing `error`.
+            // Revert path awaits `.eq("id", …)` directly — a plain object
+            // resolves to itself under await, exposing `error`.
             error: null,
+            // CAS on a currently-unassigned member.
             is: () => {
               call.cas = true;
-              return {
-                select: async () =>
-                  casResults[id] ?? { data: [{ id }], error: null },
-              };
+              return casNode;
+            },
+            // CAS on a currently-assigned member (`.eq("tenant_id", oldWave)`).
+            eq: () => {
+              call.cas = true;
+              return casNode;
             },
           };
         },
@@ -190,16 +197,28 @@ describe("reassignMembers", () => {
     expect(invalidateSpy).toHaveBeenCalledWith("student:wave-A:u-2:profile");
   });
 
-  it("never overwrites an already-assigned member — counted as failed", async () => {
+  it("reassigns an already-assigned member to the new wave (CAS on the old wave)", async () => {
     targetRows = [
       { id: "m1", user_id: "u-1", email: "a@x.com", tenant_id: null },
       { id: "m2", user_id: "u-2", email: "b@x.com", tenant_id: "wave-B" },
     ];
     const result = await reassignMembers({}, form("wave-A", ["m1", "m2"]));
-    expect(result).toEqual({ reassignedCount: 1, failedCount: 1 });
-    expect(assignCalls().map((c) => c.id)).toEqual(["m1"]);
-    expect(updateUserById).toHaveBeenCalledTimes(1);
-    expect(updateUserById).toHaveBeenCalledWith("u-1", expect.anything());
+    expect(result).toEqual({ reassignedCount: 2, failedCount: 0 });
+    expect(assignCalls().map((c) => c.id)).toEqual(["m1", "m2"]);
+    expect(updateUserById).toHaveBeenCalledTimes(2);
+    // The old wave's cached profile for the moved member is also dropped.
+    expect(invalidateSpy).toHaveBeenCalledWith("student:wave-B:u-2:profile");
+    expect(invalidateSpy).toHaveBeenCalledWith("student:wave-A:u-2:profile");
+  });
+
+  it("skips a member already in the target wave (no-op, not counted)", async () => {
+    targetRows = [
+      { id: "m1", user_id: "u-1", email: "a@x.com", tenant_id: "wave-A" },
+    ];
+    const result = await reassignMembers({}, form("wave-A", ["m1"]));
+    expect(result).toEqual({ reassignedCount: 0, failedCount: 0 });
+    expect(updateCalls).toHaveLength(0);
+    expect(updateUserById).not.toHaveBeenCalled();
   });
 
   it("counts ids that resolve to no member row as failed", async () => {

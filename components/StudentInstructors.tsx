@@ -6,6 +6,7 @@ import strings from "@/lib/strings";
 type InstructorRow = {
   id: string;
   name: string;
+  title: string | null;
   image_path: string | null;
 };
 
@@ -20,8 +21,8 @@ export default async function StudentInstructors() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("instructors")
-    .select("id, name, image_path")
-    .order("created_at", { ascending: false });
+    .select("id, name, title, image_path")
+    .order("position", { ascending: true });
 
   const instructors = (data ?? []) as InstructorRow[];
 
@@ -43,6 +44,7 @@ export default async function StudentInstructors() {
       instructors={instructors.map((row) => ({
         id: row.id,
         name: row.name,
+        title: row.title,
         imageUrl: instructorImageUrl(row.image_path),
       }))}
     />

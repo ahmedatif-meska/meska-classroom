@@ -30,10 +30,18 @@ vi.mock("@/lib/supabase/server", () => ({
 
 import { updateInstructor } from "@/app/admin/instructors/actions";
 
-function form(opts: { id?: string | null; name?: string | null; description?: string; image?: File }) {
+function form(opts: {
+  id?: string | null;
+  name?: string | null;
+  title?: string | null;
+  description?: string;
+  image?: File;
+}) {
   const fd = new FormData();
   if (opts.id !== null && opts.id !== undefined) fd.set("id", opts.id);
   if (opts.name !== null && opts.name !== undefined) fd.set("name", opts.name);
+  const title = opts.title === undefined ? "Lead Instructor" : opts.title;
+  if (title !== null) fd.set("title", title);
   if (opts.description !== undefined) fd.set("description_html", opts.description);
   if (opts.image) fd.set("image", opts.image);
   return fd;

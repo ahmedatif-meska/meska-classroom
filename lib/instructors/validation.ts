@@ -7,18 +7,21 @@ import strings from "@/lib/strings";
  */
 
 export type FieldValidation =
-  | { ok: true; name: string }
+  | { ok: true; name: string; title: string }
   | { ok: false; error: string };
 
 export type ImageValidation = { ok: true } | { ok: false; error: string };
 
-/** FR-010 — the instructor name is required, non-empty after trim. */
+/** The instructor name and job title are both required, non-empty after trim. */
 export function validateInstructorFields(
-  name: FormDataEntryValue | null | undefined
+  name: FormDataEntryValue | null | undefined,
+  title: FormDataEntryValue | null | undefined
 ): FieldValidation {
   const n = typeof name === "string" ? name.trim() : "";
   if (!n) return { ok: false, error: strings.instructorsNameRequired };
-  return { ok: true, name: n };
+  const t = typeof title === "string" ? title.trim() : "";
+  if (!t) return { ok: false, error: strings.instructorsTitleRequired };
+  return { ok: true, name: n, title: t };
 }
 
 /** Supported upload types (FR-007). Used by the server action and the client pre-check. */

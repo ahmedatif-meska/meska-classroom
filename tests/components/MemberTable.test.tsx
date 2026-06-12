@@ -62,34 +62,35 @@ describe("MemberTable — reassign selection", () => {
     expect(screen.getByText("Online")).toBeInTheDocument();
   });
 
-  it("offers checkboxes only for unassigned members, plus a select-all", () => {
+  it("offers a checkbox for every member, plus a select-all", () => {
     render(
       <MemberTable members={[assigned, unassignedA, unassignedB]} waves={waves} />
     );
-    // 1 header select-all + 2 unassigned rows; the assigned row has none.
-    expect(screen.getAllByRole("checkbox")).toHaveLength(3);
+    // 1 header select-all + 3 member rows (assigned members are selectable too).
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
     expect(
       screen.getByRole("checkbox", { name: strings.reassignSelectAllAria })
     ).toBeInTheDocument();
     expect(
       screen.getByRole("checkbox", {
-        name: `${strings.reassignSelectOneAria} Sara Adel`,
+        name: `${strings.reassignSelectOneAria} Mona Ali`,
       })
     ).toBeInTheDocument();
   });
 
-  it("renders no selection UI at all when every member is assigned", () => {
+  it("offers selection UI even when every member is assigned", () => {
     render(<MemberTable members={[assigned]} waves={waves} />);
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    // header select-all + the one assigned row, plus the reassign affordances.
+    expect(screen.getAllByRole("checkbox")).toHaveLength(2);
     expect(
-      screen.queryByRole("button", { name: strings.reassignToolbarLabel })
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: strings.reassignToolbarLabel })
+    ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: strings.reassignRowLabel })
-    ).not.toBeInTheDocument();
+      screen.getByRole("button", { name: strings.reassignRowLabel })
+    ).toBeInTheDocument();
   });
 
-  it("select-all selects every unassigned member and updates the count", async () => {
+  it("select-all selects every member and updates the count", async () => {
     const user = userEvent.setup();
     render(
       <MemberTable members={[assigned, unassignedA, unassignedB]} waves={waves} />
@@ -101,11 +102,12 @@ describe("MemberTable — reassign selection", () => {
       screen.getByRole("checkbox", { name: strings.reassignSelectAllAria })
     );
     expect(screen.getByRole("status")).toHaveTextContent(
-      `2 ${strings.reassignSelectedLabel}`
+      `3 ${strings.reassignSelectedLabel}`
     );
+    // The already-assigned member is selectable now too.
     expect(
       screen.getByRole("checkbox", {
-        name: `${strings.reassignSelectOneAria} Omar Nour`,
+        name: `${strings.reassignSelectOneAria} Mona Ali`,
       })
     ).toBeChecked();
   });
@@ -131,11 +133,11 @@ describe("MemberTable — reassign selection", () => {
       within(dialog).getByRole("heading", { name: strings.reassignTitle })
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByText(new RegExp(`2 ${strings.reassignSelectedLabel}`))
+      within(dialog).getByText(new RegExp(`3 ${strings.reassignSelectedLabel}`))
     ).toBeInTheDocument();
     const hidden = dialog.querySelectorAll('input[name="member_ids"]');
     expect(Array.from(hidden).map((i) => (i as HTMLInputElement).value)).toEqual(
-      ["m2", "m3"]
+      ["m1", "m2", "m3"]
     );
   });
 
@@ -144,12 +146,13 @@ describe("MemberTable — reassign selection", () => {
     render(
       <MemberTable members={[assigned, unassignedA, unassignedB]} waves={waves} />
     );
-    // Only the two unassigned rows offer Reassign.
+    // Every row offers Reassign now (assigned and unassigned alike).
     const rowButtons = screen.getAllByRole("button", {
       name: strings.reassignRowLabel,
     });
-    expect(rowButtons).toHaveLength(2);
+    expect(rowButtons).toHaveLength(3);
 
+    // The first row is the already-assigned member (m1).
     await user.click(rowButtons[0]);
     const dialog = screen.getByRole("dialog");
     expect(
@@ -157,7 +160,7 @@ describe("MemberTable — reassign selection", () => {
     ).toBeInTheDocument();
     const hidden = dialog.querySelectorAll('input[name="member_ids"]');
     expect(Array.from(hidden).map((i) => (i as HTMLInputElement).value)).toEqual(
-      ["m2"]
+      ["m1"]
     );
   });
 
@@ -178,18 +181,18 @@ describe("MemberTable — reassign selection", () => {
       within(dialog).getByLabelText(new RegExp(strings.memberWaveLabel, "i")),
       "w1"
     );
-    reassignMembers.mockResolvedValue({ reassignedCount: 2, failedCount: 0 });
+    reassignMembers.mockResolvedValue({ reassignedCount: 3, failedCount: 0 });
     await user.click(
       within(dialog).getByRole("button", { name: strings.reassignSubmitLabel })
     );
 
     expect(
       await within(dialog).findByText(
-        new RegExp(`2 ${strings.reassignSuccessLabel}`)
+        new RegExp(`3 ${strings.reassignSuccessLabel}`)
       )
     ).toBeInTheDocument();
     const fd = reassignMembers.mock.calls[0][1] as FormData;
-    expect(fd.getAll("member_ids")).toEqual(["m2", "m3"]);
+    expect(fd.getAll("member_ids")).toEqual(["m1", "m2", "m3"]);
     expect(fd.get("wave_id")).toBe("w1");
 
     await user.click(

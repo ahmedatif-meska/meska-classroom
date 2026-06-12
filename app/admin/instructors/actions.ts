@@ -16,9 +16,19 @@ import strings from "@/lib/strings";
 
 export type InstructorFormState = { error?: string; saved?: boolean };
 export type RemoveInstructorState = { error?: string; removed?: boolean };
+export type ReorderInstructorsState = { error?: string; saved?: boolean };
 
 const LIST_PATH = "/admin/instructors";
+// Instructor changes surface on the student Home "About instructors" section.
+const STUDENT_HOME_PATH = "/student/dashboard";
 const BUCKET = "instructor-images";
+
+/** Revalidate both the admin list and the student Home, and drop the cache. */
+async function revalidateInstructors(): Promise<void> {
+  revalidatePath(LIST_PATH);
+  revalidatePath(STUDENT_HOME_PATH);
+  await invalidate(adminListKey("instructors"));
+}
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -78,7 +88,10 @@ export async function createInstructor(
     return { error: strings.instructorsForbidden };
   }
 
-  const valid = validateInstructorFields(formData.get("name"));
+  const valid = validateInstructorFields(
+    formData.get("name"),
+    formData.get("title")
+  );
   if (!valid.ok) return { error: valid.error };
 
   let imagePath: string | null = null;
@@ -91,18 +104,28 @@ export async function createInstructor(
 
   const descriptionHtml = sanitizeDescription(formData.get("description_html"));
 
+  // Append at the bottom: the new instructor's position is the current max + 1.
+  const { data: last } = await supabase
+    .from("instructors")
+    .select("position")
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const position = (last?.position ?? 0) + 1;
+
   const { error } = await supabase.from("instructors").insert({
     name: valid.name,
+    title: valid.title,
     description_html: descriptionHtml || null,
     image_path: imagePath,
+    position,
   });
   if (error) {
     await logError({ operation: "createInstructor", surface: "admin", error });
     return { error: strings.instructorsSaveFailed };
   }
 
-  revalidatePath(LIST_PATH);
-  await invalidate(adminListKey("instructors"));
+  await revalidateInstructors();
   return { saved: true };
 }
 
@@ -131,16 +154,21 @@ export async function updateInstructor(
     return { error: strings.instructorsSaveFailed };
   }
 
-  const valid = validateInstructorFields(formData.get("name"));
+  const valid = validateInstructorFields(
+    formData.get("name"),
+    formData.get("title")
+  );
   if (!valid.ok) return { error: valid.error };
 
   const update: {
     name: string;
+    title: string;
     description_html: string | null;
     updated_at: string;
     image_path?: string;
   } = {
     name: valid.name,
+    title: valid.title,
     description_html: sanitizeDescription(formData.get("description_html")) || null,
     updated_at: new Date().toISOString(),
   };
@@ -172,8 +200,7 @@ export async function updateInstructor(
     return { error: strings.instructorsSaveFailed };
   }
 
-  revalidatePath(LIST_PATH);
-  await invalidate(adminListKey("instructors"));
+  await revalidateInstructors();
   return { saved: true };
 }
 
@@ -219,7 +246,55 @@ export async function removeInstructor(
 
   await removeImage(supabase, existing?.image_path);
 
-  revalidatePath(LIST_PATH);
-  await invalidate(adminListKey("instructors"));
+  await revalidateInstructors();
   return { removed: true };
+}
+
+/**
+ * reorderInstructors — persist a new display order (gated Server Action).
+ *
+ * Admin-only → takes the full list of instructor ids in the desired order and
+ * writes each row's `position` to its index (1-based). Drag and the keyboard
+ * up/down controls both funnel through this. The new order reflects on the
+ * student Home (revalidated below).
+ */
+export async function reorderInstructors(
+  orderedIds: string[]
+): Promise<ReorderInstructorsState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!assertAdminSession(user ? { user } : null).ok) {
+    return { error: strings.instructorsForbidden };
+  }
+
+  if (
+    !Array.isArray(orderedIds) ||
+    orderedIds.length === 0 ||
+    !orderedIds.every((id) => typeof id === "string" && id)
+  ) {
+    return { error: strings.instructorsReorderFailed };
+  }
+
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase
+        .from("instructors")
+        .update({ position: index + 1 })
+        .eq("id", id)
+    )
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    await logError({
+      operation: "reorderInstructors",
+      surface: "admin",
+      error: failed.error,
+    });
+    return { error: strings.instructorsReorderFailed };
+  }
+
+  await revalidateInstructors();
+  return { saved: true };
 }
