@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { instructorImageUrl } from "@/lib/instructors/image";
+import { sanitizeDescription } from "@/lib/instructors/sanitize";
 import StudentInstructorsList from "@/components/StudentInstructorsList";
 import strings from "@/lib/strings";
 
@@ -7,6 +8,7 @@ type InstructorRow = {
   id: string;
   name: string;
   title: string | null;
+  description_html: string | null;
   image_path: string | null;
 };
 
@@ -21,7 +23,7 @@ export default async function StudentInstructors() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("instructors")
-    .select("id, name, title, image_path")
+    .select("id, name, title, description_html, image_path")
     .order("position", { ascending: true });
 
   const instructors = (data ?? []) as InstructorRow[];
@@ -45,6 +47,11 @@ export default async function StudentInstructors() {
         id: row.id,
         name: row.name,
         title: row.title,
+        // Sanitize again at the trust boundary before it crosses to the client
+        // (defense-in-depth — the admin already sanitizes on save).
+        descriptionHtml: row.description_html
+          ? sanitizeDescription(row.description_html)
+          : null,
         imageUrl: instructorImageUrl(row.image_path),
       }))}
     />

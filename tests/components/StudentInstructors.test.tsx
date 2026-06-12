@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import strings from "@/lib/strings";
 
 vi.mock("next/image", () => ({
@@ -107,6 +107,49 @@ describe("StudentInstructors", () => {
     expect(
       screen.queryByRole("heading", { name: "Carol" })
     ).not.toBeInTheDocument();
+  });
+
+  it("opens a detail modal with the instructor's bio when a row is clicked", async () => {
+    instructors = [
+      {
+        id: "i1",
+        name: "Dr. Sarah Lee",
+        description_html: "<p>AI researcher and educator</p>",
+        image_path: null,
+      },
+    ];
+    render(await StudentInstructors());
+    // The bio is not visible until the row is opened.
+    expect(
+      screen.queryByText("AI researcher and educator")
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${strings.studentInstructorViewDetailsLabel} — Dr. Sarah Lee`,
+      })
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByText("AI researcher and educator")
+    ).toBeInTheDocument();
+  });
+
+  it("shows a no-bio note in the modal when an instructor has no description", async () => {
+    instructors = [
+      { id: "i1", name: "Omar Khan", description_html: null, image_path: null },
+    ];
+    render(await StudentInstructors());
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `${strings.studentInstructorViewDetailsLabel} — Omar Khan`,
+      })
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        strings.studentInstructorNoBio
+      )
+    ).toBeInTheDocument();
   });
 
   it("shows no View All toggle when there are two or fewer instructors", async () => {

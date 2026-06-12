@@ -471,6 +471,8 @@ const strings = {
   studentRewardsPoints: "1,250 Points",
   studentInstructorsTitle: "About your instructors",
   studentInstructorsEmptyNote: "No instructors have been added yet.",
+  studentInstructorViewDetailsLabel: "View details",
+  studentInstructorNoBio: "No description provided yet.",
   studentInstructorsViewAllLabel: "View All",
   studentInstructorsShowLessLabel: "Show less",
 
