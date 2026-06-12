@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import strings from "@/lib/strings";
 
 // SubmitAssignment is a client island with its own deps — stub it here.
@@ -133,7 +133,7 @@ describe("StudentWeekContent", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders each video's title + play button in order, with no iframe before play", async () => {
+  it("renders each video's title and Drive /preview frame in order, visible by default", async () => {
     videos = [
       { id: "v1", title: "Lesson 1", drive_file_id: ID },
       { id: "v2", title: "Lesson 2", drive_file_id: ID2 },
@@ -143,29 +143,26 @@ describe("StudentWeekContent", () => {
     );
     expect(screen.getByText("Lesson 1")).toBeInTheDocument();
     expect(screen.getByText("Lesson 2")).toBeInTheDocument();
-    const play1 = screen.getByRole("button", {
-      name: `${strings.studentVideoPlayLabel}: Lesson 1`,
-    });
-    expect(play1).toBeInTheDocument();
-    // Click-to-load façade: no third-party iframe is mounted until play.
-    expect(container.querySelector("iframe")).toBeNull();
+    // The player frame is shown by default (no click-to-load), in admin order.
+    const iframes = container.querySelectorAll("iframe");
+    expect(iframes).toHaveLength(2);
+    expect(iframes[0].getAttribute("src")).toBe(
+      `https://drive.google.com/file/d/${ID}/preview`
+    );
+    expect(iframes[1].getAttribute("src")).toBe(
+      `https://drive.google.com/file/d/${ID2}/preview`
+    );
   });
 
-  it("mounts the Drive /preview iframe only after pressing play", async () => {
+  it("sandboxes the player so it cannot download or pop out", async () => {
     videos = [{ id: "v1", title: "Lesson 1", drive_file_id: ID }];
     const { container } = render(
       await StudentWeekContent({ tenantId: "wave-A", week, studentId: "stu1" })
     );
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: `${strings.studentVideoPlayLabel}: Lesson 1`,
-      })
-    );
-    const iframe = container.querySelector("iframe");
-    expect(iframe).not.toBeNull();
-    expect(iframe?.getAttribute("src")).toBe(
-      `https://drive.google.com/file/d/${ID}/preview`
-    );
+    const sandbox = container.querySelector("iframe")?.getAttribute("sandbox");
+    expect(sandbox).not.toBeNull();
+    expect(sandbox).not.toContain("allow-downloads");
+    expect(sandbox).not.toContain("allow-popups");
   });
 
   it("shows the videos empty state while Resources/Assignments still render", async () => {

@@ -1,21 +1,15 @@
-"use client";
-
-import { useState } from "react";
-import strings from "@/lib/strings";
-
 /**
- * Inline week-video player (the smallest client island on the week page). It
- * renders a lightweight poster with a play button; the heavy Google Drive
- * `/preview` iframe is mounted ONLY when the student presses play (click-to-load
- * façade) so a week with many videos never loads N third-party frames on open —
- * protecting mobile Core Web Vitals (Principle V). The embed URL is always built
+ * Inline week-video player. The Google Drive `/preview` frame is shown by default
+ * (it renders the video's poster with Drive's own play control), so a student sees
+ * the video on the page without an extra click. The embed URL is always built
  * server-side from the stored Drive file id, never from raw admin input.
  *
- * Preview-only: the player offers no "open in Drive" link, and the iframe is
- * sandboxed WITHOUT `allow-downloads`/`allow-popups`, so the embedded Drive frame
- * cannot start a download or pop out to the Drive page. (True download protection
- * also requires the Drive file's share setting "viewers can download" to be OFF —
- * the bytes are served by Google, not by us.)
+ * Preview-only: there is no "open in Drive" link, and the iframe is sandboxed
+ * WITHOUT `allow-downloads`/`allow-popups`, so the embedded Drive frame cannot
+ * start a download or pop out to the Drive page. (True download protection also
+ * requires the Drive file's share setting "viewers can download" to be OFF — the
+ * bytes are served by Google, not by us.) `loading="lazy"` still defers offscreen
+ * frames so a week with many videos does not load them all at once.
  */
 export default function WeekVideoPlayer({
   title,
@@ -24,42 +18,19 @@ export default function WeekVideoPlayer({
   title: string;
   embedUrl: string;
 }) {
-  const [playing, setPlaying] = useState(false);
-
   return (
     <figure className="space-y-2">
       <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-200 bg-ink/90 shadow-sm">
-        {playing ? (
-          <iframe
-            src={embedUrl}
-            title={title}
-            loading="lazy"
-            allow="autoplay; fullscreen"
-            allowFullScreen
-            referrerPolicy="no-referrer"
-            sandbox="allow-scripts allow-same-origin allow-presentation"
-            className="absolute inset-0 h-full w-full"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setPlaying(true)}
-            aria-label={`${strings.studentVideoPlayLabel}: ${title}`}
-            className="group absolute inset-0 flex items-center justify-center focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand"
-          >
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-white/80 transition group-hover:bg-white/20">
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </span>
-          </button>
-        )}
+        <iframe
+          src={embedUrl}
+          title={title}
+          loading="lazy"
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          referrerPolicy="no-referrer"
+          sandbox="allow-scripts allow-same-origin allow-presentation"
+          className="absolute inset-0 h-full w-full"
+        />
       </div>
       <figcaption className="truncate text-sm font-semibold text-ink">
         {title}
