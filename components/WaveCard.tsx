@@ -1,23 +1,7 @@
 import Link from "next/link";
 import type { WaveRow } from "@/components/WaveForm";
-import type { WaveStatus } from "@/lib/waves/validation";
+import { STATUS_META } from "@/components/WaveTags";
 import strings from "@/lib/strings";
-
-/** Status tag copy + color, one entry per lifecycle state. */
-const STATUS_META: Record<WaveStatus, { label: string; className: string }> = {
-  not_started: {
-    label: strings.waveStatusNotStarted,
-    className: "bg-slate-100 text-slate-600",
-  },
-  in_progress: {
-    label: strings.waveStatusInProgress,
-    className: "bg-amber-100 text-amber-700",
-  },
-  completed: {
-    label: strings.waveStatusCompleted,
-    className: "bg-emerald-100 text-emerald-700",
-  },
-};
 
 /**
  * One wave rendered as a card for the Waves list (Server Component). Shows the
