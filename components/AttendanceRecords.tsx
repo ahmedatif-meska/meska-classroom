@@ -216,15 +216,12 @@ export default function AttendanceRecords({
         </div>
       ) : null}
 
-      {filtered.length === 0 ? (
-        <p className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-surface p-10 text-center text-sm text-slate-500">
-          {strings.attendanceNoMatches}
-        </p>
-      ) : (
-        <div className="mt-6 overflow-hidden rounded-2xl bg-surface shadow-sm">
-          {/* Horizontal scroll on narrow screens — confined to this element
-              (no page-level sideways scroll, Principle IV). */}
-          <div className="overflow-x-auto">
+      {/* The table is ALWAYS rendered (headers visible) — even with no records;
+          the empty / no-match state is a row inside the body. */}
+      <div className="mt-6 overflow-hidden rounded-2xl bg-surface shadow-sm">
+        {/* Horizontal scroll on narrow screens — confined to this element
+            (no page-level sideways scroll, Principle IV). */}
+        <div className="overflow-x-auto">
             <table className="w-full min-w-[1100px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
@@ -240,7 +237,23 @@ export default function AttendanceRecords({
                 </tr>
               </thead>
               <tbody>
-                {paged.map((r) => (
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-16 text-center">
+                      <p className="text-sm font-semibold text-ink">
+                        {records.length === 0
+                          ? strings.attendanceEmptyTitle
+                          : strings.attendanceNoMatches}
+                      </p>
+                      {records.length === 0 ? (
+                        <p className="mt-1 text-sm text-slate-400">
+                          {strings.attendanceEmptyNote}
+                        </p>
+                      ) : null}
+                    </td>
+                  </tr>
+                ) : (
+                  paged.map((r) => (
                   <tr
                     key={r.id}
                     className="border-b border-slate-100 last:border-b-0"
@@ -281,12 +294,12 @@ export default function AttendanceRecords({
                       {r.comment ?? strings.attendanceFeedbackNone}
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
-          </div>
         </div>
-      )}
+      </div>
 
       {/* Pager — only when more than one page of results. */}
       {filtered.length > PAGE_SIZE ? (

@@ -209,12 +209,9 @@ export default async function AttendancePage({
             </svg>
           </summary>
 
-          {/* Offline (scan a member's QR) and Online (email-only CSV import). */}
-          <div
-            className={`mt-4 grid gap-6 ${
-              onlineWaves.length > 0 ? "lg:grid-cols-2 lg:items-start" : "max-w-2xl"
-            }`}
-          >
+          {/* Offline (scan a member's QR) and Online (email-only CSV import) —
+              both always shown so the two ways to record attendance are clear. */}
+          <div className="mt-4 grid gap-6 lg:grid-cols-2 lg:items-start">
             {/* Offline — the scanner navigates to the member page, where the
                 attendance panel records the mark. */}
             <section className="rounded-2xl bg-surface p-6 shadow-sm">
@@ -229,36 +226,31 @@ export default async function AttendancePage({
               </div>
             </section>
 
-            {/* Online — email-only CSV import. */}
-            {onlineWaves.length > 0 ? (
-              <section className="rounded-2xl bg-surface p-6 shadow-sm">
-                <h2 className="text-lg font-bold text-ink">
-                  {strings.attendanceOnlineSectionTitle}
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {strings.attendanceOnlineSectionNote}
-                </p>
-                <div className="mt-4">
+            {/* Online — email-only CSV import. Always present; shows a note when
+                there are no online waves to target yet. */}
+            <section className="rounded-2xl bg-surface p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-ink">
+                {strings.attendanceOnlineSectionTitle}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {strings.attendanceOnlineSectionNote}
+              </p>
+              <div className="mt-4">
+                {onlineWaves.length > 0 ? (
                   <OnlineAttendanceUpload waves={onlineWaves} />
-                </div>
-              </section>
-            ) : null}
+                ) : (
+                  <p className="rounded-xl border border-dashed border-slate-200 bg-page px-4 py-3 text-sm text-slate-400">
+                    {strings.attendanceNoOnlineWaves}
+                  </p>
+                )}
+              </div>
+            </section>
           </div>
         </details>
 
-        {/* Records table — the main view (searchable, filterable, paginated 10/page). */}
-        {records.length === 0 ? (
-          <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-surface py-16 text-center">
-            <p className="text-sm font-semibold text-ink">
-              {strings.attendanceEmptyTitle}
-            </p>
-            <p className="mt-1 text-sm text-slate-400">
-              {strings.attendanceEmptyNote}
-            </p>
-          </div>
-        ) : (
-          <AttendanceRecords records={records} />
-        )}
+        {/* Records table — always rendered (with its headers) so the table is
+            visible even when empty; the empty/no-match state is a row inside it. */}
+        <AttendanceRecords records={records} />
       </div>
     </DashboardShell>
   );

@@ -387,6 +387,8 @@ const strings = {
   attendanceOnlineSectionTitle: "Online attendance",
   attendanceOnlineSectionNote:
     "Upload a CSV of attendee emails for an online wave's week.",
+  attendanceNoOnlineWaves:
+    "No online waves yet. Create an online wave to import its attendance here.",
   attendanceWaveLabel: "Wave",
   attendanceWeekLabel: "Week",
   attendanceAttendLabel: "Attend",
