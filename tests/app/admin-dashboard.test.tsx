@@ -9,6 +9,12 @@ vi.mock("@/lib/supabase/server", () => ({
         data: { user: { email: "admin@example.com" } },
       })),
     },
+    // The dashboard reads several tables; an empty result for each renders the
+    // intrinsic empty-platform state (zeros / "—"), which these tests assert
+    // around (heading, nav, footer, panel isolation).
+    from: vi.fn(() => ({
+      select: vi.fn(async () => ({ data: [], count: 0 })),
+    })),
   })),
 }));
 

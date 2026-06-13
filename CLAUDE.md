@@ -150,7 +150,7 @@ These are working if: fewer unnecessary changes in diffs, fewer rewrites from ov
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, shell commands,
 and other important information, read the current plan at
-`specs/012-attendance-points-student-reset/plan.md` (and its `research.md`,
+`specs/013-admin-analytics-dashboard/plan.md` (and its `research.md`,
 `data-model.md`, `contracts/ui-contracts.md`, `quickstart.md`).
 
 Each feature directory under `specs/` holds its own `plan.md`, `research.md`,
@@ -159,14 +159,18 @@ Features 001–006 are implemented and merged to `main`; 007 (Redis caching &
 persistent sessions) and 008 (wave management) are merged; 009 (error logging —
 central `error_logs` table capturing every unexpected error, admin-only viewing)
 is merged; 010 (student Home & Weeks navigation) is merged; 011 (week video
-resources — Google-Drive-hosted videos per week, `wave_videos`) is merged. Active
-feature branch: `012-attendance-points-student-reset` — three features: (1) student
-self-service password reset (mirrors admin 003 on the student surface, new
-`is_student_email()` gate); (2) an admin **Attendance** tab — Scan QR moves from
-Members, offline waves are marked present by scanning a student then picking an
-offline wave + week (one record per student per calendar day, `wave_attendance`),
-online waves via an email-only CSV; (3) an admin **Points** tab with an editable
-`point_rules` table (attendance 10 / assignment 20 / feedback 30), student totals
-derived as counts × current values, plus persisted `wave_feedback` with a
-points-awarded thank-you popup.
+resources — Google-Drive-hosted videos per week, `wave_videos`) is merged; 012
+(student password reset, attendance tracking via `wave_attendance`, gamification
+`point_rules` + persisted `wave_feedback`) is merged. Active feature branch:
+`013-admin-analytics-dashboard` — a **read-only** admin analytics dashboard that
+rewrites the empty `/admin/dashboard` into headline KPI cards (waves with
+online/offline split, members, instructors, overall attendance rate, total
+points), a per-wave breakdown (member count + attendance/submission rates + avg
+rating, reusing the `WaveCard` type/status tags), brand-colored **pure-SVG**
+charts (online/offline donut, waves-by-status, members-per-wave bars, points
+leaderboard), and engagement/content insight panels. **No migration, no new
+table, no new dependency, no Server Action.** All aggregation is in pure,
+unit-tested `lib/dashboard/` helpers (reusing `lib/points/total.ts`); chart
+components under `components/dashboard/` are Server Components (zero added client
+JS). Rate/average helpers guard division-by-zero (→ "—", never NaN).
 <!-- SPECKIT END -->
