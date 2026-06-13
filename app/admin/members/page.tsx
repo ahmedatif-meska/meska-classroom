@@ -3,7 +3,6 @@ import AdminSidebarFooter from "@/components/AdminSidebarFooter";
 import MemberTable, { type MemberRow } from "@/components/MemberTable";
 import AddMembersModal from "@/components/AddMembersModal";
 import DownloadTemplateButton from "@/components/DownloadTemplateButton";
-import ScanMemberButton from "@/components/ScanMemberButton";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
 import { cached } from "@/lib/cache/redis";
@@ -77,8 +76,8 @@ export default async function MembersPage() {
           </div>
           {/* Wrap on small screens so the actions never overflow the viewport
               (no page-level horizontal scroll) or overlap the title. */}
+          {/* Scan QR moved to the Attendance tab (feature 012, FR-009). */}
           <div className="flex flex-wrap items-center gap-3 sm:shrink-0">
-            <ScanMemberButton />
             <DownloadTemplateButton />
             <AddMembersModal waves={waves} />
           </div>

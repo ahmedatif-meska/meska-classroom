@@ -39,4 +39,14 @@ describe("ScanMemberButton", () => {
     expect(screen.getByText(strings.scanTitle)).toBeInTheDocument();
     expect(await screen.findByText(strings.scanCameraError)).toBeInTheDocument();
   });
+
+  it("stays closed by default (no autoOpen)", () => {
+    render(<ScanMemberButton />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("opens the scanner immediately when autoOpen is set (FR-013 — the Next return path)", () => {
+    render(<ScanMemberButton autoOpen />);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });

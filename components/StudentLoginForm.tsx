@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { signInStudent, type StudentSignInState } from "@/app/student/actions";
 import strings from "@/lib/strings";
 
@@ -45,12 +46,12 @@ export default function StudentLoginForm() {
           <label htmlFor="password" className="text-sm font-bold text-ink">
             {strings.passwordLabel}
           </label>
-          <a
-            href="#"
+          <Link
+            href="/student/forgot-password"
             className="text-[11px] font-semibold text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             {strings.studentForgotPasswordLabel}
-          </a>
+          </Link>
         </div>
         <input
           id="password"

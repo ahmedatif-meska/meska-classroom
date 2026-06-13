@@ -304,8 +304,8 @@ export default async function StudentWeekContent({
         )}
       </section>
 
-      {/* Give Feedback (rating; UI-only) */}
-      <WeekFeedback />
+      {/* Give Feedback — persisted per week; awards points (feature 012) */}
+      <WeekFeedback weekId={week.id} />
     </div>
   );
 }

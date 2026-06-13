@@ -150,18 +150,23 @@ These are working if: fewer unnecessary changes in diffs, fewer rewrites from ov
 <!-- SPECKIT START -->
 For additional context about technologies, project structure, shell commands,
 and other important information, read the current plan at
-`specs/011-video-resources/plan.md` (and its `research.md`, `data-model.md`,
-`contracts/ui-contracts.md`, `quickstart.md`).
+`specs/012-attendance-points-student-reset/plan.md` (and its `research.md`,
+`data-model.md`, `contracts/ui-contracts.md`, `quickstart.md`).
 
 Each feature directory under `specs/` holds its own `plan.md`, `research.md`,
 `data-model.md`, `contracts/`, `quickstart.md`, and per-phase `walkthrough.md`.
 Features 001–006 are implemented and merged to `main`; 007 (Redis caching &
 persistent sessions) and 008 (wave management) are merged; 009 (error logging —
 central `error_logs` table capturing every unexpected error, admin-only viewing)
-is merged; 010 (student Home & Weeks navigation — rename Dashboard→Home with a
-personalized greeting, a collapsible Weeks sidebar surfacing each week's Resources
-and Assignments, and instructors shown on Home) is merged. Active feature branch:
-`011-video-resources` (admin attaches Google-Drive-hosted videos to a wave's week
-via a shared link; students play them inline on the week page — a new
-`wave_videos` content type storing a Drive file id, no Storage upload).
+is merged; 010 (student Home & Weeks navigation) is merged; 011 (week video
+resources — Google-Drive-hosted videos per week, `wave_videos`) is merged. Active
+feature branch: `012-attendance-points-student-reset` — three features: (1) student
+self-service password reset (mirrors admin 003 on the student surface, new
+`is_student_email()` gate); (2) an admin **Attendance** tab — Scan QR moves from
+Members, offline waves are marked present by scanning a student then picking an
+offline wave + week (one record per student per calendar day, `wave_attendance`),
+online waves via an email-only CSV; (3) an admin **Points** tab with an editable
+`point_rules` table (attendance 10 / assignment 20 / feedback 30), student totals
+derived as counts × current values, plus persisted `wave_feedback` with a
+points-awarded thank-you popup.
 <!-- SPECKIT END -->

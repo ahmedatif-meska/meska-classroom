@@ -19,6 +19,7 @@ function makeBuilder(result: Result) {
   const b: Record<string, unknown> = {};
   b.select = () => b;
   b.eq = () => b;
+  b.gte = () => b; // points count reads (feature 012) — awaited directly, count undefined → 0
   b.order = async () => ({ data: result.list ?? [] });
   b.maybeSingle = async () => ({ data: result.single ?? null });
   return b;

@@ -112,6 +112,83 @@ describe.skipIf(!hasCreds)("RLS isolation (live)", () => {
     expect((seen ?? []).length).toBeGreaterThan(0);
   });
 
+  it("attendance and feedback are wave-isolated; only admins write attendance (feature 012, Principle VI)", async () => {
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(url!, serviceKey!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+
+    // Seed Wave A with a week, a student, an attendance row, and a feedback row.
+    const { data: t } = await admin
+      .from("tenants")
+      .insert({ name: "rls-test-attendance", type: "offline" })
+      .select("id")
+      .single();
+    tenantIds.push(t!.id);
+    const { data: week } = await admin
+      .from("wave_weeks")
+      .insert({ tenant_id: t!.id, position: 1, title: "W1" })
+      .select("id")
+      .single();
+    const { data: stu } = await admin
+      .from("students")
+      .insert({
+        tenant_id: t!.id,
+        student_code: "rls-att-STU-001",
+        full_name: "Attendance Student",
+      })
+      .select("id")
+      .single();
+    await admin.from("wave_attendance").insert({
+      tenant_id: t!.id,
+      week_id: week!.id,
+      student_id: stu!.id,
+      attended_on: "2026-06-12",
+      method: "scan",
+    });
+    await admin.from("wave_feedback").insert({
+      tenant_id: t!.id,
+      week_id: week!.id,
+      student_id: stu!.id,
+      session_rating: 5,
+    });
+
+    // A caller without Wave A's tenant claim (anon — same harness as the other
+    // cross-wave denials) reads ZERO rows from either table.
+    const anon = createClient(url!, anonKey!);
+    for (const table of ["wave_attendance", "wave_feedback"]) {
+      const { data } = await anon.from(table).select("id");
+      expect(data ?? []).toHaveLength(0);
+    }
+
+    // A non-admin cannot write attendance at all (admin-recorded only, FR-018).
+    const { error: writeErr } = await anon.from("wave_attendance").insert({
+      tenant_id: t!.id,
+      week_id: week!.id,
+      student_id: stu!.id,
+      attended_on: "2026-06-12",
+      method: "scan",
+    });
+    expect(writeErr).not.toBeNull();
+
+    // A non-member cannot write feedback into Wave A either (insert policy
+    // requires the caller's own tenant + own student row).
+    const { error: fbErr } = await anon.from("wave_feedback").insert({
+      tenant_id: t!.id,
+      week_id: week!.id,
+      student_id: stu!.id,
+      session_rating: 1,
+    });
+    expect(fbErr).not.toBeNull();
+
+    // The admin sees the seeded rows.
+    const { data: seen } = await admin
+      .from("wave_attendance")
+      .select("id")
+      .eq("tenant_id", t!.id);
+    expect((seen ?? []).length).toBe(1);
+  });
+
   it("instructors are readable by any authenticated user but writable only by admins (feature 010)", async () => {
     const { createClient } = await import("@supabase/supabase-js");
     const admin = createClient(url!, serviceKey!, {

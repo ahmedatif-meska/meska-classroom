@@ -78,6 +78,14 @@ describe("middleware admin-route protection (FR-010)", () => {
     const res = await proxy(new NextRequest("http://localhost/admin/members"));
     expect(res.headers.get("location")).toBe("http://localhost/admin");
   });
+
+  it("redirects a non-admin away from the Attendance and Points tabs (feature 012)", async () => {
+    currentUser = { app_metadata: { role: "student" } };
+    for (const path of ["/admin/attendance", "/admin/points"]) {
+      const res = await proxy(new NextRequest(`http://localhost${path}`));
+      expect(res.headers.get("location")).toBe("http://localhost/admin");
+    }
+  });
 });
 
 describe("middleware student-route protection / session reopen (US1)", () => {

@@ -20,8 +20,29 @@ let waveRow: { name: string; description_html: string | null } | null = null;
 let currentUser: { id: string; app_metadata?: Record<string, unknown> } = {
   id: "member-id",
 };
+// Rewards (feature 012): per-table action counts + the current point rules.
+let counts: Record<string, number> = {
+  wave_attendance: 0,
+  wave_submissions: 0,
+  wave_feedback: 0,
+};
+let pointRules: { action: string; points: number }[] = [];
 
 const from = vi.fn((table: string) => {
+  if (table === "point_rules") {
+    return { select: async () => ({ data: pointRules }) };
+  }
+  if (table in counts) {
+    // Count-only reads: select(…, { count, head }).eq(…)[.gte(…)] awaited
+    // directly — model as a chainable thenable resolving { count }.
+    const c: Record<string, unknown> = {};
+    c.select = () => c;
+    c.eq = () => c;
+    c.gte = () => c;
+    c.then = (resolve: (v: { count: number }) => void) =>
+      resolve({ count: counts[table] });
+    return c;
+  }
   const b: Record<string, unknown> = {};
   b.select = () => b;
   b.eq = () => b;
@@ -44,6 +65,12 @@ beforeEach(() => {
   student = null;
   waveRow = null;
   currentUser = { id: "member-id" };
+  counts = { wave_attendance: 0, wave_submissions: 0, wave_feedback: 0 };
+  pointRules = [
+    { action: "attendance", points: 10 },
+    { action: "assignment", points: 20 },
+    { action: "feedback", points: 30 },
+  ];
   process.env.NEXT_PUBLIC_SITE_URL = "https://classroom.test";
 });
 
@@ -66,6 +93,37 @@ describe("Student dashboard QR (US4.1)", () => {
     expect(
       screen.queryByRole("img", { name: strings.studentQrAlt })
     ).not.toBeInTheDocument();
+  });
+
+  it("shows zero points for a member with no rewarded actions (FR-022, US5)", async () => {
+    student = { id: "m1", full_name: "Mona" };
+    render(await StudentDashboard());
+    expect(
+      screen.getByText(`0 ${strings.studentRewardsPointsUnit}`)
+    ).toBeInTheDocument();
+  });
+
+  it("derives the total as counts × current rules (1/1/1 under 10/20/30 → 60, US5)", async () => {
+    student = { id: "m1", full_name: "Mona" };
+    counts = { wave_attendance: 1, wave_submissions: 1, wave_feedback: 1 };
+    render(await StudentDashboard());
+    expect(
+      screen.getByText(`60 ${strings.studentRewardsPointsUnit}`)
+    ).toBeInTheDocument();
+  });
+
+  it("recomputes retroactively when a rule value changes (FR-029, US5)", async () => {
+    student = { id: "m1", full_name: "Mona" };
+    counts = { wave_attendance: 1, wave_submissions: 1, wave_feedback: 1 };
+    pointRules = [
+      { action: "attendance", points: 10 },
+      { action: "assignment", points: 20 },
+      { action: "feedback", points: 40 },
+    ];
+    render(await StudentDashboard());
+    expect(
+      screen.getByText(`70 ${strings.studentRewardsPointsUnit}`)
+    ).toBeInTheDocument();
   });
 
   it("keeps the QR visible for an unassigned member whose wave was deleted", async () => {
