@@ -2,6 +2,9 @@ import DashboardShell from "@/components/DashboardShell";
 import AdminSidebarFooter from "@/components/AdminSidebarFooter";
 import ScanMemberButton from "@/components/ScanMemberButton";
 import OnlineAttendanceUpload from "@/components/OnlineAttendanceUpload";
+import AttendanceRecords, {
+  type AttendanceRecord,
+} from "@/components/AttendanceRecords";
 import type { AttendanceWaveOption } from "@/components/AttendancePanel";
 import { adminNavItems } from "@/lib/adminNav";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +16,8 @@ type AttendanceRow = {
   id: string;
   attended_on: string;
   method: string;
+  student_id: string | null;
+  week_id: string | null;
   student: { full_name: string | null; email: string | null } | null;
   tenant: { name: string } | null;
   week: { position: number; title: string | null } | null;
@@ -20,9 +25,6 @@ type AttendanceRow = {
 
 /** Bounded records read (Principle V) — the latest rows, newest day first. */
 const RECORDS_LIMIT = 200;
-
-const TH = "whitespace-nowrap px-6 py-3 font-semibold";
-const TD = "whitespace-nowrap px-6 py-4 align-middle";
 
 /** Supabase embeds may arrive as object or single-element array — normalize. */
 function one<T>(v: T | T[] | null | undefined): T | null {
@@ -95,7 +97,7 @@ export default async function AttendancePage({
     supabase
       .from("wave_attendance")
       .select(
-        "id, attended_on, method, student:students(full_name, email), tenant:tenants(name), week:wave_weeks(position, title)"
+        "id, attended_on, method, student_id, week_id, student:students(full_name, email), tenant:tenants(name), week:wave_weeks(position, title)"
       )
       .order("attended_on", { ascending: false })
       .order("created_at", { ascending: false })
@@ -103,17 +105,49 @@ export default async function AttendancePage({
     loadOnlineWaves(supabase),
   ]);
 
-  const records = ((recordData ?? []) as unknown[]).map((r) => {
+  const rows = ((recordData ?? []) as unknown[]).map((r) => {
     const row = r as Record<string, unknown>;
     return {
       id: row.id as string,
       attended_on: row.attended_on as string,
       method: row.method as string,
+      student_id: (row.student_id as string | null) ?? null,
+      week_id: (row.week_id as string | null) ?? null,
       student: one(row.student as AttendanceRow["student"] | AttendanceRow["student"][]),
       tenant: one(row.tenant as AttendanceRow["tenant"] | AttendanceRow["tenant"][]),
       week: one(row.week as AttendanceRow["week"] | AttendanceRow["week"][]),
     };
   });
+
+  // Which (student, week) pairs in this record set have feedback — drives the
+  // "Feedback given" column (enhancement #4). One bounded read over the same
+  // students/weeks already on screen; matched per row by (student_id, week_id).
+  const feedbackPairs = new Set<string>();
+  const studentIds = [...new Set(rows.map((r) => r.student_id).filter(Boolean))];
+  const weekIds = [...new Set(rows.map((r) => r.week_id).filter(Boolean))];
+  if (studentIds.length > 0 && weekIds.length > 0) {
+    const { data: fb } = await supabase
+      .from("wave_feedback")
+      .select("student_id, week_id")
+      .in("student_id", studentIds as string[])
+      .in("week_id", weekIds as string[]);
+    for (const f of (fb ?? []) as { student_id: string; week_id: string }[]) {
+      feedbackPairs.add(`${f.student_id}:${f.week_id}`);
+    }
+  }
+
+  const records: AttendanceRecord[] = rows.map((r) => ({
+    id: r.id,
+    student: r.student?.full_name || r.student?.email || "—",
+    wave: r.tenant?.name ?? "—",
+    week: weekLabel(r.week),
+    date: r.attended_on,
+    method: r.method === "csv" ? "csv" : "scan",
+    feedbackGiven:
+      r.student_id != null &&
+      r.week_id != null &&
+      feedbackPairs.has(`${r.student_id}:${r.week_id}`),
+  }));
 
   return (
     <DashboardShell
@@ -161,7 +195,7 @@ export default async function AttendancePage({
           </section>
         ) : null}
 
-        {/* Records */}
+        {/* Records — searchable & filterable table (enhancements #4/#5) */}
         {records.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-surface py-16 text-center">
             <p className="text-sm font-semibold text-ink">
@@ -172,51 +206,7 @@ export default async function AttendancePage({
             </p>
           </div>
         ) : (
-          <div className="mt-6 overflow-hidden rounded-2xl bg-surface shadow-sm">
-            {/* Horizontal scroll on narrow screens — confined to this element
-                (no page-level sideways scroll, Principle IV). */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px] border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
-                    <th className={TH}>{strings.attendanceColStudent}</th>
-                    <th className={TH}>{strings.attendanceColWave}</th>
-                    <th className={TH}>{strings.attendanceColWeek}</th>
-                    <th className={TH}>{strings.attendanceColDate}</th>
-                    <th className={TH}>{strings.attendanceColMethod}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.map((r) => (
-                    <tr
-                      key={r.id}
-                      className="border-b border-slate-100 last:border-b-0"
-                    >
-                      <td className={`${TD} font-semibold text-ink`}>
-                        {r.student?.full_name || r.student?.email || "—"}
-                      </td>
-                      <td className={`${TD} text-sm text-slate-500`}>
-                        {r.tenant?.name ?? "—"}
-                      </td>
-                      <td className={`${TD} text-sm text-slate-500`}>
-                        {weekLabel(r.week)}
-                      </td>
-                      <td className={`${TD} text-sm text-slate-500`}>
-                        {r.attended_on}
-                      </td>
-                      <td className={TD}>
-                        <span className="inline-flex rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand">
-                          {r.method === "scan"
-                            ? strings.attendanceMethodScan
-                            : strings.attendanceMethodCsv}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <AttendanceRecords records={records} />
         )}
       </div>
     </DashboardShell>

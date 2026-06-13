@@ -102,30 +102,44 @@ export default async function StudentWeekContent({
 }) {
   const supabase = await createClient();
 
-  const [{ data: matData }, { data: asgData }, { data: subData }, { data: vidData }] =
-    await Promise.all([
-      supabase
-        .from("wave_materials")
-        .select("id, title, file_path")
-        .eq("tenant_id", tenantId)
-        .eq("week_id", week.id),
-      supabase
-        .from("wave_assignments")
-        .select("id, title, file_path, instructions_html, due_at")
-        .eq("tenant_id", tenantId)
-        .eq("week_id", week.id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("wave_submissions")
-        .select("assignment_id")
-        .eq("student_id", studentId),
-      supabase
-        .from("wave_videos")
-        .select("id, title, drive_file_id")
-        .eq("tenant_id", tenantId)
-        .eq("week_id", week.id)
-        .order("position", { ascending: true }),
-    ]);
+  const [
+    { data: matData },
+    { data: asgData },
+    { data: subData },
+    { data: vidData },
+    { data: feedbackRow },
+  ] = await Promise.all([
+    supabase
+      .from("wave_materials")
+      .select("id, title, file_path")
+      .eq("tenant_id", tenantId)
+      .eq("week_id", week.id),
+    supabase
+      .from("wave_assignments")
+      .select("id, title, file_path, instructions_html, due_at")
+      .eq("tenant_id", tenantId)
+      .eq("week_id", week.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("wave_submissions")
+      .select("assignment_id")
+      .eq("student_id", studentId),
+    supabase
+      .from("wave_videos")
+      .select("id, title, drive_file_id")
+      .eq("tenant_id", tenantId)
+      .eq("week_id", week.id)
+      .order("position", { ascending: true }),
+    // Whether the caller has already given feedback for this week — feedback is
+    // one-shot (no resubmission, feature 012), so the form is replaced by a
+    // thank-you state when a row already exists.
+    supabase
+      .from("wave_feedback")
+      .select("id")
+      .eq("student_id", studentId)
+      .eq("week_id", week.id)
+      .maybeSingle(),
+  ]);
 
   const materials = (matData ?? []) as Material[];
   const assignments = (asgData ?? []) as Assignment[];
@@ -133,6 +147,7 @@ export default async function StudentWeekContent({
   const submittedIds = new Set(
     (subData ?? []).map((s) => s.assignment_id as string)
   );
+  const alreadyGaveFeedback = Boolean(feedbackRow);
 
   // Pre-sign every file URL (own wave → policy passes; otherwise null).
   const matUrls = new Map<string, string | null>();
@@ -184,6 +199,8 @@ export default async function StudentWeekContent({
         )}
       </section>
 
+      {/* Resources + Assignments — side by side on desktop to use the width */}
+      <div className="grid gap-6 lg:grid-cols-2">
       {/* Resources */}
       <section className="space-y-4 rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3">
@@ -303,9 +320,10 @@ export default async function StudentWeekContent({
           </ul>
         )}
       </section>
+      </div>
 
       {/* Give Feedback — persisted per week; awards points (feature 012) */}
-      <WeekFeedback weekId={week.id} />
+      <WeekFeedback weekId={week.id} alreadySubmitted={alreadyGaveFeedback} />
     </div>
   );
 }

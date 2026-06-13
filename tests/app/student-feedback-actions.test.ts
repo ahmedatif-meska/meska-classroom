@@ -3,8 +3,9 @@ import strings from "@/lib/strings";
 
 /**
  * US5 — submitFeedback: student-gated, week-in-own-wave verified (the
- * foreign-week farming case), one row per (week, student) via upsert,
- * returns the CURRENT feedback point value for the thank-you popup.
+ * foreign-week farming case), one row per (week, student) and one-shot
+ * (resubmission rejected, enhancement #4), returns the CURRENT feedback point
+ * value for the thank-you popup.
  */
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -16,10 +17,11 @@ type User = { id: string; app_metadata?: Record<string, unknown> } | null;
 let currentUser: User = null;
 let studentRow: { id: string } | null = null;
 let weekRow: { id: string } | null = null;
+let existingFeedback: { id: string } | null = null;
 let feedbackPoints = 30;
-let upsertError: { message: string } | null = null;
+let insertError: { message: string; code?: string } | null = null;
 
-const upsert = vi.fn(async () => ({ error: upsertError }));
+const insert = vi.fn(async () => ({ error: insertError }));
 const getUser = vi.fn(async () => ({ data: { user: currentUser } }));
 
 function from(table: string) {
@@ -40,7 +42,15 @@ function from(table: string) {
     };
   }
   if (table === "wave_feedback") {
-    return { upsert };
+    return {
+      // Existence check: .select().eq().eq().maybeSingle()
+      select: () => ({
+        eq: () => ({
+          eq: () => ({ maybeSingle: async () => ({ data: existingFeedback }) }),
+        }),
+      }),
+      insert,
+    };
   }
   if (table === "point_rules") {
     return {
@@ -74,8 +84,9 @@ beforeEach(() => {
   };
   studentRow = { id: "stu-1" };
   weekRow = { id: "wk-1" };
+  existingFeedback = null;
   feedbackPoints = 30;
-  upsertError = null;
+  insertError = null;
 });
 
 describe("submitFeedback (US5)", () => {
@@ -83,13 +94,13 @@ describe("submitFeedback (US5)", () => {
     currentUser = { id: "admin-id", app_metadata: { role: "admin" } };
     const result = await submitFeedback({}, form({ week_id: "wk-1" }));
     expect(result).toEqual({ error: strings.studentForbidden });
-    expect(upsert).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("requires a week id", async () => {
     const result = await submitFeedback({}, form({}));
     expect(result).toEqual({ error: strings.studentFeedbackFailed });
-    expect(upsert).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("rejects a week not in the caller's own wave (foreign-week farming, Principle VI)", async () => {
@@ -101,10 +112,10 @@ describe("submitFeedback (US5)", () => {
       form({ week_id: "other-wave-week" })
     );
     expect(result).toEqual({ error: strings.studentForbidden });
-    expect(upsert).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 
-  it("upserts the caller's own feedback and returns the current feedback points", async () => {
+  it("inserts the caller's own feedback and returns the current feedback points", async () => {
     const result = await submitFeedback(
       {},
       form({
@@ -115,11 +126,8 @@ describe("submitFeedback (US5)", () => {
       })
     );
     expect(result).toEqual({ saved: true, awardedPoints: 30 });
-    expect(upsert).toHaveBeenCalledOnce();
-    const [row, opts] = upsert.mock.calls[0] as unknown as [
-      Record<string, unknown>,
-      { onConflict: string },
-    ];
+    expect(insert).toHaveBeenCalledOnce();
+    const [row] = insert.mock.calls[0] as unknown as [Record<string, unknown>];
     expect(row).toMatchObject({
       tenant_id: "wave-1",
       week_id: "wk-1",
@@ -128,8 +136,29 @@ describe("submitFeedback (US5)", () => {
       instructor_rating: 4,
       comment: "Great week!",
     });
-    // One row per (week, student) — a resubmission UPDATES, never duplicates.
-    expect(opts).toEqual({ onConflict: "week_id,student_id" });
+  });
+
+  it("rejects a resubmission when feedback already exists (one-shot, #4)", async () => {
+    existingFeedback = { id: "fb-1" };
+    const result = await submitFeedback(
+      {},
+      form({ week_id: "wk-1", session_rating: "5" })
+    );
+    expect(result).toEqual({
+      error: strings.studentFeedbackAlreadySubmitted,
+    });
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it("treats a unique-violation race as the same one-shot rejection", async () => {
+    insertError = { message: "duplicate", code: "23505" };
+    const result = await submitFeedback(
+      {},
+      form({ week_id: "wk-1", session_rating: "5" })
+    );
+    expect(result).toEqual({
+      error: strings.studentFeedbackAlreadySubmitted,
+    });
   });
 
   it("bounds out-of-range ratings to null instead of writing junk", async () => {
@@ -137,7 +166,7 @@ describe("submitFeedback (US5)", () => {
       {},
       form({ week_id: "wk-1", session_rating: "9", comment: "x" })
     );
-    const [row] = upsert.mock.calls[0] as unknown as [Record<string, unknown>];
+    const [row] = insert.mock.calls[0] as unknown as [Record<string, unknown>];
     expect(row.session_rating).toBeNull();
   });
 

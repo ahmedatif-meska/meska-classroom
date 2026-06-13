@@ -9,12 +9,14 @@ vi.mock("@/components/SubmitAssignment", () => ({
   ),
 }));
 
-type Result = { list?: unknown[] };
+type Result = { list?: unknown[]; single?: unknown };
 function makeBuilder(result: Result) {
   const b: Record<string, unknown> = {};
   b.select = () => b;
   b.eq = () => b;
   b.order = async () => ({ data: result.list ?? [] });
+  // The feedback existence check terminates in .maybeSingle().
+  b.maybeSingle = async () => ({ data: result.single ?? null });
   // Awaiting the builder directly (no .order) resolves to the list too.
   b.then = (resolve: (v: { data: unknown[] }) => unknown) =>
     Promise.resolve({ data: result.list ?? [] }).then(resolve);
@@ -31,6 +33,9 @@ let assignments: {
 }[] = [];
 let submissions: { assignment_id: string }[] = [];
 let videos: { id: string; title: string; drive_file_id: string }[] = [];
+// Whether feedback already exists for this (student, week) — drives the
+// one-shot feedback state (enhancement #4).
+let feedbackRow: { id: string } | null = null;
 // Signed URL: null simulates a foreign / unauthorized path (no download link).
 let signUrl: string | null = "https://files.test/signed";
 
@@ -39,6 +44,7 @@ const from = vi.fn((table: string) => {
   if (table === "wave_assignments") return makeBuilder({ list: assignments });
   if (table === "wave_submissions") return makeBuilder({ list: submissions });
   if (table === "wave_videos") return makeBuilder({ list: videos });
+  if (table === "wave_feedback") return makeBuilder({ single: feedbackRow });
   return makeBuilder({ list: [] });
 });
 
@@ -67,6 +73,7 @@ beforeEach(() => {
   assignments = [];
   submissions = [];
   videos = [];
+  feedbackRow = null;
   signUrl = "https://files.test/signed";
 });
 

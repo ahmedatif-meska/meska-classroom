@@ -374,8 +374,20 @@ const strings = {
   attendanceColWeek: "Week",
   attendanceColDate: "Date",
   attendanceColMethod: "Method",
+  attendanceColFeedback: "Feedback",
   attendanceMethodScan: "Scan",
   attendanceMethodCsv: "CSV",
+  attendanceFeedbackGiven: "Given",
+  attendanceFeedbackNone: "—",
+
+  // Admin — Attendance (records search & filters)
+  attendanceSearchPlaceholder: "Search by student name or email",
+  attendanceFilterWaveLabel: "Wave",
+  attendanceFilterMethodLabel: "Method",
+  attendanceFilterFeedbackLabel: "Feedback",
+  attendanceFilterFeedbackGiven: "Given",
+  attendanceFilterFeedbackNone: "Not given",
+  attendanceNoMatches: "No attendance matches your filters",
 
   // Admin — Points (gamification configuration)
   pointsNavLabel: "Points",
@@ -587,6 +599,11 @@ const strings = {
   studentFeedbackThanksTitle: "Thank you for your feedback!",
   studentFeedbackAwardedPrefix: "You earned",
   studentFeedbackFailed: "Your feedback couldn't be saved. Please try again.",
+  studentFeedbackAlreadySubmitted:
+    "You've already submitted feedback for this week.",
+  studentFeedbackAlreadyTitle: "Feedback submitted",
+  studentFeedbackAlreadyNote:
+    "You've already shared your feedback for this week. Thank you!",
 
   // Student — sign in (email + password)
   studentSignInSubtitle:

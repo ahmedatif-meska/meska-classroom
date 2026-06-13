@@ -119,7 +119,7 @@ export default async function StudentDashboard() {
           <div className="absolute -right-12 bottom-24 h-72 w-72 rounded-full bg-brand opacity-10 blur-[100px]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-2xl space-y-6 px-4 py-8 sm:px-6">
+        <div className="relative z-10 w-full max-w-5xl space-y-6 px-4 py-8 sm:px-6">
           {/* Welcome */}
           <section className="space-y-1">
             <h1 className="flex items-center gap-1.5 text-2xl font-bold tracking-tight text-ink">
@@ -132,13 +132,10 @@ export default async function StudentDashboard() {
             </p>
           </section>
 
-          {/* Current wave */}
-          <section className="relative overflow-hidden rounded-2xl border border-slate-200 border-l-4 border-l-brand bg-surface p-6 shadow-sm">
-            <div
-              className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-brand/10"
-              aria-hidden="true"
-            />
-            <div className="relative">
+          {/* Wave + rewards — two matching cards, side by side on desktop */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Current wave */}
+            <section className="rounded-2xl border border-slate-200 border-l-4 border-l-brand bg-surface p-6 shadow-sm">
               <span className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-brand">
                 {strings.studentHomeCurrentWaveLabel}
               </span>
@@ -157,41 +154,44 @@ export default async function StudentDashboard() {
                   {strings.dashboardEmptyNote}
                 </p>
               )}
-            </div>
-          </section>
+            </section>
 
-          {/* My rewards — derived total: action counts × current point rules */}
-          <section className="space-y-4 rounded-2xl border border-slate-200 bg-brand/5 p-6 shadow-sm">
-            <h2 className="text-base font-bold text-ink">
-              {strings.studentRewardsTitle}
-            </h2>
-            <div className="flex items-center gap-4">
-              <span
-                aria-hidden="true"
-                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
-              >
-                <TrophyIcon />
-              </span>
-              <div className="text-2xl font-extrabold text-ink">
-                {`${totalPoints.toLocaleString("en-US")} ${strings.studentRewardsPointsUnit}`}
-              </div>
-            </div>
-          </section>
-
-          <StudentInstructors />
-
-          {/* Check-in QR */}
-          <section className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-surface p-6 text-center shadow-sm">
-            <div>
+            {/* My rewards — derived total: action counts × current point rules */}
+            <section className="space-y-4 rounded-2xl border border-slate-200 border-l-4 border-l-brand bg-surface p-6 shadow-sm">
               <h2 className="text-base font-bold text-ink">
-                {strings.studentQrTitle}
+                {strings.studentRewardsTitle}
               </h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                {strings.studentQrSubtitle}
-              </p>
-            </div>
-            <MemberQrCode svg={qrSvg} />
-          </section>
+              <div className="flex items-center gap-4">
+                <span
+                  aria-hidden="true"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
+                >
+                  <TrophyIcon />
+                </span>
+                <div className="text-2xl font-extrabold text-ink">
+                  {`${totalPoints.toLocaleString("en-US")} ${strings.studentRewardsPointsUnit}`}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* Instructors + QR — fill the remaining width on desktop */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <StudentInstructors />
+
+            {/* Check-in QR */}
+            <section className="flex flex-col items-center gap-4 rounded-2xl border border-slate-200 bg-surface p-6 text-center shadow-sm">
+              <div>
+                <h2 className="text-base font-bold text-ink">
+                  {strings.studentQrTitle}
+                </h2>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  {strings.studentQrSubtitle}
+                </p>
+              </div>
+              <MemberQrCode svg={qrSvg} />
+            </section>
+          </div>
         </div>
       </div>
     </DashboardShell>

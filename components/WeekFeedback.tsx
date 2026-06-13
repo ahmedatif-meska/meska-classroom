@@ -146,13 +146,50 @@ function ThanksPopup({
   );
 }
 
+/** The card shown once feedback exists for this week — feedback is one-shot. */
+function AlreadyGaveFeedback() {
+  return (
+    <section className="space-y-3 rounded-2xl border border-slate-200 bg-surface p-6 text-center shadow-sm">
+      <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-green-600">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </span>
+      <h2 className="text-lg font-bold text-ink">
+        {strings.studentFeedbackAlreadyTitle}
+      </h2>
+      <p className="text-sm text-slate-500">
+        {strings.studentFeedbackAlreadyNote}
+      </p>
+    </section>
+  );
+}
+
 /**
  * Per-week "Give Feedback" card (client island, US5). Collects a session
  * rating, an overall instructor rating, and a free-text comment, persists them
- * via `submitFeedback` (one row per student per week — a resubmission edits the
- * same feedback), and pops a thank-you naming the awarded points.
+ * via `submitFeedback` (one row per student per week — feedback is one-shot,
+ * resubmission is blocked), and pops a thank-you naming the awarded points.
+ * Once feedback exists for the week (`alreadySubmitted`, or a just-submitted
+ * result), the form is replaced by a thank-you card.
  */
-export default function WeekFeedback({ weekId }: { weekId: string }) {
+export default function WeekFeedback({
+  weekId,
+  alreadySubmitted = false,
+}: {
+  weekId: string;
+  alreadySubmitted?: boolean;
+}) {
   const [session, setSession] = useState(0);
   const [instructor, setInstructor] = useState(0);
   const [comment, setComment] = useState("");
@@ -160,11 +197,27 @@ export default function WeekFeedback({ weekId }: { weekId: string }) {
     submitFeedback,
     {} as FeedbackState
   );
-  // The popup is dismissable; track which result was dismissed so a NEW
-  // submission shows a fresh popup.
+  // The popup is dismissable; track which result was dismissed so it stays
+  // closed while the thank-you card takes the form's place.
   const [dismissed, setDismissed] = useState<FeedbackState | null>(null);
 
   const showPopup = Boolean(state.saved) && state !== dismissed;
+
+  // Feedback is one-shot: hide the form once a row exists for this week —
+  // either already present on load, or just submitted in this session.
+  if (alreadySubmitted || state.saved) {
+    return (
+      <>
+        <AlreadyGaveFeedback />
+        {showPopup ? (
+          <ThanksPopup
+            points={state.awardedPoints ?? 0}
+            onClose={() => setDismissed(state)}
+          />
+        ) : null}
+      </>
+    );
+  }
 
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
@@ -229,13 +282,6 @@ export default function WeekFeedback({ weekId }: { weekId: string }) {
           </button>
         </div>
       </form>
-
-      {showPopup ? (
-        <ThanksPopup
-          points={state.awardedPoints ?? 0}
-          onClose={() => setDismissed(state)}
-        />
-      ) : null}
     </section>
   );
 }

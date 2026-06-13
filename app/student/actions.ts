@@ -205,8 +205,8 @@ const MAX_FEEDBACK_COMMENT_LEN = 2000;
  * RLS WITH an explicit own-tenant filter (a foreign wave's week id resolves
  * nothing and is rejected — mirrors `submitAssignment`), and the table's RLS
  * independently confines the row to the caller's own wave + own student row.
- * One row per (week, student) via upsert, so re-submitting edits the same
- * feedback and the feedback points count once (FR-023).
+ * Feedback is one-shot: one row per (week, student), and re-submission is
+ * rejected (a row already exists), so the feedback points count exactly once.
  */
 export async function submitFeedback(
   _prev: FeedbackState,
@@ -246,24 +246,37 @@ export async function submitFeedback(
     .maybeSingle();
   if (!week) return { error: strings.studentForbidden };
 
+  // Feedback is one-shot: if a row already exists for this (week, student),
+  // reject the resubmission so the points are never earned twice (FR-023).
+  const { data: existing } = await supabase
+    .from("wave_feedback")
+    .select("id")
+    .eq("week_id", weekId)
+    .eq("student_id", student.id)
+    .maybeSingle();
+  if (existing) return { error: strings.studentFeedbackAlreadySubmitted };
+
   const commentRaw = formData.get("comment");
   const comment =
     typeof commentRaw === "string"
       ? commentRaw.trim().slice(0, MAX_FEEDBACK_COMMENT_LEN)
       : "";
 
-  const { error } = await supabase.from("wave_feedback").upsert(
-    {
-      tenant_id: tenantId,
-      week_id: weekId,
-      student_id: student.id,
-      session_rating: ratingFrom(formData.get("session_rating")),
-      instructor_rating: ratingFrom(formData.get("instructor_rating")),
-      comment: comment || null,
-    },
-    { onConflict: "week_id,student_id" }
-  );
+  const { error } = await supabase.from("wave_feedback").insert({
+    tenant_id: tenantId,
+    week_id: weekId,
+    student_id: student.id,
+    session_rating: ratingFrom(formData.get("session_rating")),
+    instructor_rating: ratingFrom(formData.get("instructor_rating")),
+    comment: comment || null,
+  });
   if (error) {
+    // A concurrent submit can still lose the unique(week_id, student_id) race —
+    // treat the duplicate as the same one-shot rejection, not a generic failure.
+    const code = (error as { code?: string }).code;
+    if (code === "23505") {
+      return { error: strings.studentFeedbackAlreadySubmitted };
+    }
     await logError({
       operation: "submitFeedback",
       surface: "student",

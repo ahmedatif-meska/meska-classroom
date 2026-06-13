@@ -63,7 +63,7 @@ export default async function StudentWeekPage({
           <div className="absolute -left-12 bottom-0 h-72 w-72 rounded-full bg-brand opacity-10 blur-[100px]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-2xl px-4 py-8 sm:px-6">
+        <div className="relative z-10 w-full max-w-5xl px-4 py-8 sm:px-6">
           <StudentWeekContent
             tenantId={tenantId}
             week={week as Week}
