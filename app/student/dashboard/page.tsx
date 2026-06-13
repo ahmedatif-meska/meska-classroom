@@ -8,6 +8,7 @@ import { cached } from "@/lib/cache/redis";
 import { studentKey } from "@/lib/cache/keys";
 import { sanitizeDescription } from "@/lib/instructors/sanitize";
 import { memberInfoUrl, renderQrSvg } from "@/lib/members/qr";
+import { POINTS_EPOCH, computeTotal } from "@/lib/points/total";
 import strings from "@/lib/strings";
 
 export default async function StudentDashboard() {
@@ -45,6 +46,49 @@ export default async function StudentDashboard() {
         .eq("id", tenantId)
         .maybeSingle()
     : { data: null };
+
+  // Derived gamification total (feature 012, FR-022/FR-029): the caller's OWN
+  // action counts (RLS-bounded) × the CURRENT point_rules values, recomputed on
+  // every view so an admin rule edit applies retroactively. Deliberately NOT
+  // wrapped in cached() — a stale total would defeat FR-029. Assignment counts
+  // start at the points epoch so everyone opens at zero (research R6).
+  let totalPoints = 0;
+  if (student) {
+    const [attendanceRes, assignmentRes, feedbackRes, rulesRes] =
+      await Promise.all([
+        supabase
+          .from("wave_attendance")
+          .select("id", { count: "exact", head: true })
+          .eq("student_id", student.id),
+        supabase
+          .from("wave_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("student_id", student.id)
+          .gte("submitted_at", POINTS_EPOCH),
+        supabase
+          .from("wave_feedback")
+          .select("id", { count: "exact", head: true })
+          .eq("student_id", student.id),
+        supabase.from("point_rules").select("action, points"),
+      ]);
+
+    const rules = { attendance: 0, assignment: 0, feedback: 0 };
+    for (const r of (rulesRes?.data ?? []) as {
+      action: string;
+      points: number;
+    }[]) {
+      if (r.action in rules) rules[r.action as keyof typeof rules] = r.points;
+    }
+
+    totalPoints = computeTotal(
+      {
+        attendance: attendanceRes?.count ?? 0,
+        assignment: assignmentRes?.count ?? 0,
+        feedback: feedbackRes?.count ?? 0,
+      },
+      rules
+    );
+  }
 
   // A QR render failure must not crash the whole dashboard — fall back to null.
   let qrSvg: string | null = null;
@@ -116,7 +160,7 @@ export default async function StudentDashboard() {
             </div>
           </section>
 
-          {/* My rewards — placeholder (no points feature yet) */}
+          {/* My rewards — derived total: action counts × current point rules */}
           <section className="space-y-4 rounded-2xl border border-slate-200 bg-brand/5 p-6 shadow-sm">
             <h2 className="text-base font-bold text-ink">
               {strings.studentRewardsTitle}
@@ -129,7 +173,7 @@ export default async function StudentDashboard() {
                 <TrophyIcon />
               </span>
               <div className="text-2xl font-extrabold text-ink">
-                {strings.studentRewardsPoints}
+                {`${totalPoints.toLocaleString("en-US")} ${strings.studentRewardsPointsUnit}`}
               </div>
             </div>
           </section>

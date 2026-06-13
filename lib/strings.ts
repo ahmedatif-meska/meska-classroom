@@ -329,6 +329,69 @@ const strings = {
   scanNoCamera: "No camera was found on this device.",
   scanRetryLabel: "Try again",
 
+  // Admin — Attendance (tab)
+  attendanceNavLabel: "Attendance",
+  attendanceTitle: "Attendance",
+  attendanceSubtitle: "Track student attendance for each wave per week",
+  attendanceScanSectionTitle: "Offline attendance",
+  attendanceScanSectionNote:
+    "Scan a student's QR code, then pick their offline wave and the week.",
+  attendanceOnlineSectionTitle: "Online attendance",
+  attendanceOnlineSectionNote:
+    "Upload a CSV of attendee emails for an online wave's week.",
+  attendanceWaveLabel: "Wave",
+  attendanceWeekLabel: "Week",
+  attendanceAttendLabel: "Attend",
+  attendanceMarkingLabel: "Marking…",
+  attendanceSuccessTitle: "Student attended successfully",
+  attendanceSuccessNote: "Scan the next attendee, or go back to the dashboard.",
+  attendanceNextLabel: "Next",
+  attendanceBackLabel: "Back",
+  attendanceAlreadyTitle: "Already attended",
+  attendanceAlreadyNote: "This student has already been marked present today.",
+  attendanceWrongWave: "This student isn't enrolled in the selected wave.",
+  attendanceWaveNotOffline: "Scan attendance is only for offline waves.",
+  attendanceWaveNotOnline: "CSV attendance is only for online waves.",
+  attendanceForbidden: "You don't have permission to do that.",
+  attendanceFailed: "The attendance couldn't be recorded. Please try again.",
+  attendanceNoWeeksNote: "This wave has no weeks yet.",
+  attendanceTemplateLabel: "Download CSV template",
+  attendanceUploadLabel: "Attendance CSV",
+  attendanceCsvMissingHeader:
+    "The file must have a single “email” column. Download the template and try again.",
+  attendanceCsvEmpty: "The file has no email rows.",
+  attendanceCsvReadyNote: "emails ready to import",
+  attendanceImportLabel: "Import attendance",
+  attendanceImportingLabel: "Importing…",
+  attendanceImportSummary: "marked present",
+  attendanceSkippedUnmatched: "not a member of this wave",
+  attendanceSkippedAlready: "already attended today",
+  attendanceEmptyTitle: "No attendance yet",
+  attendanceEmptyNote:
+    "Records appear here once you scan students or upload a CSV.",
+  attendanceColStudent: "Student",
+  attendanceColWave: "Wave",
+  attendanceColWeek: "Week",
+  attendanceColDate: "Date",
+  attendanceColMethod: "Method",
+  attendanceMethodScan: "Scan",
+  attendanceMethodCsv: "CSV",
+
+  // Admin — Points (gamification configuration)
+  pointsNavLabel: "Points",
+  pointsTitle: "Points",
+  pointsSubtitle: "Configure the points students earn for each action",
+  pointsActionAttendance: "Attendance",
+  pointsActionAssignment: "Assignment upload",
+  pointsActionFeedback: "Feedback",
+  pointsValueLabel: "Points",
+  pointsSaveLabel: "Save",
+  pointsSavingLabel: "Saving…",
+  pointsSavedNote: "Saved",
+  pointsInvalid: "Enter a whole number of 0 or more.",
+  pointsForbidden: "You don't have permission to do that.",
+  pointsSaveFailed: "The points couldn't be saved. Please try again.",
+
   // Admin — Waves (list)
   wavesNavLabel: "Waves",
   wavesTitle: "Waves",
@@ -483,7 +546,7 @@ const strings = {
   studentHomeCurrentWaveLabel: "Current Wave",
   studentNoWaveNote: "You're not in a wave yet.",
   studentRewardsTitle: "My Rewards",
-  studentRewardsPoints: "1,250 Points",
+  studentRewardsPointsUnit: "Points",
   studentInstructorsTitle: "About your instructors",
   studentInstructorsEmptyNote: "No instructors have been added yet.",
   studentInstructorViewDetailsLabel: "View details",
@@ -512,7 +575,7 @@ const strings = {
     "Your submission couldn't be uploaded. Please try again.",
   studentForbidden: "You don't have permission to do that.",
 
-  // Student — week feedback (rating; UI-only for now, not persisted)
+  // Student — week feedback (persisted per week; awards points — feature 012)
   studentFeedbackTitle: "Give Feedback",
   studentFeedbackIntro:
     "How was this week's content? Share your thoughts to help us improve the curriculum.",
@@ -521,7 +584,9 @@ const strings = {
   studentFeedbackStarsUnit: "stars",
   studentFeedbackCommentPlaceholder: "Type your feedback here…",
   studentFeedbackSubmitLabel: "Submit Feedback",
-  studentFeedbackThanks: "Thanks for your feedback!",
+  studentFeedbackThanksTitle: "Thank you for your feedback!",
+  studentFeedbackAwardedPrefix: "You earned",
+  studentFeedbackFailed: "Your feedback couldn't be saved. Please try again.",
 
   // Student — sign in (email + password)
   studentSignInSubtitle:
@@ -534,6 +599,15 @@ const strings = {
   studentSignInLabel: "Sign In",
   studentLoginIdIsEmailNote: "Your login ID is your email address.",
   studentSignOutLabel: "Sign out",
+
+  // Student — forgot password (request a reset link)
+  studentForgotTitle: "Reset your password",
+  studentForgotSubtitle:
+    "Enter your account email and we'll send you a reset link.",
+  studentForgotSubmitLabel: "Send reset link",
+  studentForgotSentTitle: "Check your email",
+  studentForgotSentNote:
+    "If an account exists for that email, a reset link is on its way.",
 
   // Student — onboarding confirm + set password
   studentConfirmPrompt: "Confirm it's you to continue setting your password.",

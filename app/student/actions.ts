@@ -1,18 +1,28 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   assertStudentSession,
   validateStudentLoginFields,
 } from "@/lib/auth/studentGate";
-import { validateNewPassword } from "@/lib/auth/passwordReset";
+import {
+  validateEmailField,
+  validateNewPassword,
+} from "@/lib/auth/passwordReset";
 import { logError } from "@/lib/errors/log";
 import strings from "@/lib/strings";
 
 export type StudentSignInState = { error?: string };
 export type SetStudentPwState = { error?: string };
+export type StudentRequestResetState = { error?: string; sent?: boolean };
+export type FeedbackState = {
+  error?: string;
+  saved?: boolean;
+  awardedPoints?: number;
+};
 
 /**
  * signInStudent — member authentication with email + password.
@@ -55,6 +65,41 @@ export async function signOutStudent() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/student");
+}
+
+/**
+ * requestStudentPasswordReset — member-only, non-enumerating recovery request.
+ *
+ * A reset link is issued only when the email belongs to a member (the
+ * `is_student_email` gate — mirror of the admin `is_admin_email`, FR-003), but
+ * every request returns the SAME neutral confirmation so the response never
+ * reveals whether an account exists (FR-002 / SC-002). The emailed link lands on
+ * the existing `/student/auth/confirm` interstitial, which already verifies
+ * `recovery` tokens on an explicit click → `/student/set-password` (R1).
+ */
+export async function requestStudentPasswordReset(
+  _prevState: StudentRequestResetState,
+  formData: FormData
+): Promise<StudentRequestResetState> {
+  const emailRaw = formData.get("email");
+
+  const fields = validateEmailField(emailRaw);
+  if (!fields.ok) return { error: fields.error };
+
+  const email = (emailRaw as string).trim().toLowerCase();
+  const supabase = await createClient();
+
+  const { data: isStudent } = await supabase.rpc("is_student_email", {
+    p_email: email,
+  });
+
+  if (isStudent) {
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/student/auth/confirm`,
+    });
+  }
+
+  return { sent: true };
 }
 
 /**
@@ -128,6 +173,11 @@ export async function setStudentPassword(
     return { error: strings.studentResetLinkInvalid };
   }
 
+  // Revoke the member's OTHER sessions so a stolen/old session dies with the
+  // password (FR-005, feature 012). The CURRENT session is kept so the
+  // dashboard redirect below still works (onboarding and recovery share it).
+  await supabase.auth.signOut({ scope: "others" });
+
   // The member has set their first password → active and able to sign in (FR-018).
   // Written with the service-role client because RLS does not let a student UPDATE
   // their own students row; scoped to their own user_id, after the session gate.
@@ -135,4 +185,101 @@ export async function setStudentPassword(
   await admin.from("students").update({ status: "active" }).eq("user_id", user!.id);
 
   redirect("/student/dashboard");
+}
+
+/** Parses an optional 1–5 star rating; anything else becomes null (bounded). */
+function ratingFrom(v: FormDataEntryValue | null): number | null {
+  if (typeof v !== "string" || !v) return null;
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+}
+
+/** Comment length bound — long pastes are truncated, never rejected. */
+const MAX_FEEDBACK_COMMENT_LEN = 2000;
+
+/**
+ * submitFeedback — persist a member's weekly feedback (US5) and report the
+ * points it earned for the thank-you popup (FR-025).
+ *
+ * Wave isolation is enforced twice: the week is fetched under the student's
+ * RLS WITH an explicit own-tenant filter (a foreign wave's week id resolves
+ * nothing and is rejected — mirrors `submitAssignment`), and the table's RLS
+ * independently confines the row to the caller's own wave + own student row.
+ * One row per (week, student) via upsert, so re-submitting edits the same
+ * feedback and the feedback points count once (FR-023).
+ */
+export async function submitFeedback(
+  _prev: FeedbackState,
+  formData: FormData
+): Promise<FeedbackState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!assertStudentSession(user ? { user } : null).ok) {
+    return { error: strings.studentForbidden };
+  }
+
+  const tenantId = (user!.app_metadata?.tenant_id as string | undefined) ?? "";
+  if (!tenantId) return { error: strings.studentForbidden };
+
+  const weekId = formData.get("week_id");
+  if (typeof weekId !== "string" || !weekId) {
+    return { error: strings.studentFeedbackFailed };
+  }
+
+  // Resolve the caller's own student row (RLS lets a student read their own).
+  const { data: student } = await supabase
+    .from("students")
+    .select("id")
+    .eq("user_id", user!.id)
+    .maybeSingle();
+  if (!student) return { error: strings.studentForbidden };
+
+  // The week MUST belong to the caller's own wave (Principle VI) — a foreign
+  // week id can never be fed feedback points.
+  const { data: week } = await supabase
+    .from("wave_weeks")
+    .select("id")
+    .eq("id", weekId)
+    .eq("tenant_id", tenantId)
+    .maybeSingle();
+  if (!week) return { error: strings.studentForbidden };
+
+  const commentRaw = formData.get("comment");
+  const comment =
+    typeof commentRaw === "string"
+      ? commentRaw.trim().slice(0, MAX_FEEDBACK_COMMENT_LEN)
+      : "";
+
+  const { error } = await supabase.from("wave_feedback").upsert(
+    {
+      tenant_id: tenantId,
+      week_id: weekId,
+      student_id: student.id,
+      session_rating: ratingFrom(formData.get("session_rating")),
+      instructor_rating: ratingFrom(formData.get("instructor_rating")),
+      comment: comment || null,
+    },
+    { onConflict: "week_id,student_id" }
+  );
+  if (error) {
+    await logError({
+      operation: "submitFeedback",
+      surface: "student",
+      error,
+      context: { weekId },
+    });
+    return { error: strings.studentFeedbackFailed };
+  }
+
+  // The CURRENT feedback rule value — shown in the thank-you popup (FR-025).
+  const { data: rule } = await supabase
+    .from("point_rules")
+    .select("points")
+    .eq("action", "feedback")
+    .maybeSingle();
+
+  revalidatePath("/student/dashboard");
+  return { saved: true, awardedPoints: rule?.points ?? 0 };
 }

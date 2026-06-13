@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { submitFeedback, type FeedbackState } from "@/app/student/actions";
 import strings from "@/lib/strings";
 
 function StarIcon({ filled }: { filled: boolean }) {
@@ -78,23 +79,43 @@ function FeedbackIcon() {
 }
 
 /**
- * Per-week "Give Feedback" card (client island). Collects a session rating, an
- * overall instructor rating, and a free-text comment. UI-only for now — submit
- * shows a thank-you and nothing is persisted (no feedback table yet).
+ * Thank-you popup shown after a persisted feedback submission — thanks the
+ * student and names the points the feedback just earned (FR-025).
  */
-export default function WeekFeedback() {
-  const [session, setSession] = useState(0);
-  const [instructor, setInstructor] = useState(0);
-  const [comment, setComment] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+function ThanksPopup({
+  points,
+  onClose,
+}: {
+  points: number;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement | null>(null);
 
-  if (submitted) {
-    return (
-      <section className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-600">
+  useEffect(() => {
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={strings.studentFeedbackThanksTitle}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-surface p-6 text-center shadow-lg sm:p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-50 text-green-600">
           <svg
-            width="22"
-            height="22"
+            width="28"
+            height="28"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -106,12 +127,44 @@ export default function WeekFeedback() {
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </span>
-        <p className="text-sm font-semibold text-ink">
-          {strings.studentFeedbackThanks}
+        <h2 className="mt-4 text-lg font-bold text-ink">
+          {strings.studentFeedbackThanksTitle}
+        </h2>
+        <p className="mt-2 text-2xl font-extrabold text-brand">
+          {`${strings.studentFeedbackAwardedPrefix} ${points} ${strings.studentRewardsPointsUnit}`}
         </p>
-      </section>
-    );
-  }
+        <button
+          ref={closeRef}
+          type="button"
+          onClick={onClose}
+          className="mt-6 w-full rounded-full bg-brand px-6 py-3 text-sm font-semibold text-white hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        >
+          {strings.closeLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Per-week "Give Feedback" card (client island, US5). Collects a session
+ * rating, an overall instructor rating, and a free-text comment, persists them
+ * via `submitFeedback` (one row per student per week — a resubmission edits the
+ * same feedback), and pops a thank-you naming the awarded points.
+ */
+export default function WeekFeedback({ weekId }: { weekId: string }) {
+  const [session, setSession] = useState(0);
+  const [instructor, setInstructor] = useState(0);
+  const [comment, setComment] = useState("");
+  const [state, formAction, pending] = useActionState(
+    submitFeedback,
+    {} as FeedbackState
+  );
+  // The popup is dismissable; track which result was dismissed so a NEW
+  // submission shows a fresh popup.
+  const [dismissed, setDismissed] = useState<FeedbackState | null>(null);
+
+  const showPopup = Boolean(state.saved) && state !== dismissed;
 
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-surface p-6 shadow-sm">
@@ -126,34 +179,63 @@ export default function WeekFeedback() {
 
       <p className="text-sm text-slate-500">{strings.studentFeedbackIntro}</p>
 
-      <StarRating
-        label={strings.studentFeedbackSessionLabel}
-        value={session}
-        onChange={setSession}
-      />
-      <StarRating
-        label={strings.studentFeedbackInstructorLabel}
-        value={instructor}
-        onChange={setInstructor}
-      />
+      <form action={formAction} className="space-y-4">
+        <input type="hidden" name="week_id" value={weekId} />
+        <input type="hidden" name="session_rating" value={session || ""} />
+        <input
+          type="hidden"
+          name="instructor_rating"
+          value={instructor || ""}
+        />
 
-      <textarea
-        value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        placeholder={strings.studentFeedbackCommentPlaceholder}
-        className="min-h-[120px] w-full resize-none rounded-xl border border-slate-200 bg-page p-4 text-sm text-ink outline-none placeholder:text-slate-400 focus:border-brand focus:bg-surface focus:ring-2 focus:ring-brand/30"
-      />
+        {state.error ? (
+          <p
+            role="alert"
+            className="rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+          >
+            {state.error}
+          </p>
+        ) : null}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setSubmitted(true)}
-          disabled={session === 0 && instructor === 0 && comment.trim() === ""}
-          className="rounded-xl bg-brand px-6 py-3 text-xs font-bold text-white shadow-sm transition-all hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50"
-        >
-          {strings.studentFeedbackSubmitLabel}
-        </button>
-      </div>
+        <StarRating
+          label={strings.studentFeedbackSessionLabel}
+          value={session}
+          onChange={setSession}
+        />
+        <StarRating
+          label={strings.studentFeedbackInstructorLabel}
+          value={instructor}
+          onChange={setInstructor}
+        />
+
+        <textarea
+          name="comment"
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder={strings.studentFeedbackCommentPlaceholder}
+          className="min-h-[120px] w-full resize-none rounded-xl border border-slate-200 bg-page p-4 text-sm text-ink outline-none placeholder:text-slate-400 focus:border-brand focus:bg-surface focus:ring-2 focus:ring-brand/30"
+        />
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={
+              pending ||
+              (session === 0 && instructor === 0 && comment.trim() === "")
+            }
+            className="rounded-xl bg-brand px-6 py-3 text-xs font-bold text-white shadow-sm transition-all hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50"
+          >
+            {strings.studentFeedbackSubmitLabel}
+          </button>
+        </div>
+      </form>
+
+      {showPopup ? (
+        <ThanksPopup
+          points={state.awardedPoints ?? 0}
+          onClose={() => setDismissed(state)}
+        />
+      ) : null}
     </section>
   );
 }

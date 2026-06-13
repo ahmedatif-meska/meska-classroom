@@ -102,6 +102,45 @@ function MembersIcon() {
   );
 }
 
+function AttendanceIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path d="m9 14 2 2 4-4" />
+    </svg>
+  );
+}
+
+function PointsIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <path d="M7 6H5a2 2 0 0 0 0 4h2M17 6h2a2 2 0 0 1 0 4h-2" />
+    </svg>
+  );
+}
+
 function AlertIcon() {
   return (
     <svg
@@ -148,6 +187,16 @@ export const adminNavItems: NavItem[] = [
     label: strings.membersNavLabel,
     href: "/admin/members",
     icon: <MembersIcon />,
+  },
+  {
+    label: strings.attendanceNavLabel,
+    href: "/admin/attendance",
+    icon: <AttendanceIcon />,
+  },
+  {
+    label: strings.pointsNavLabel,
+    href: "/admin/points",
+    icon: <PointsIcon />,
   },
   {
     label: strings.errorsNavLabel,

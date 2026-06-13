@@ -29,7 +29,10 @@ type SessionUser = {
 let currentUser: SessionUser = null;
 
 const maybeSingle = vi.fn(async () => ({ data: member, error: null }));
-const eq = vi.fn(() => ({ maybeSingle }));
+// Offline-wave list for the attendance panel (feature 012) — none in these
+// tests, so the panel renders nothing and the page is unchanged.
+const order = vi.fn(async () => ({ data: [] }));
+const eq = vi.fn(() => ({ maybeSingle, order }));
 const select = vi.fn(() => ({ eq }));
 const from = vi.fn(() => ({ select }));
 const getUser = vi.fn(async () => ({ data: { user: currentUser } }));

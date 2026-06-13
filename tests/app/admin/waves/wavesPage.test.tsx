@@ -58,8 +58,12 @@ describe("WavesPage (US1.1)", () => {
     const cards = screen.getAllByRole("link", { name: /September|July/ });
     expect(cards[0]).toHaveTextContent("September"); // page passes order desc from the query
     expect(screen.getByText("July")).toBeInTheDocument();
-    expect(screen.getByText(strings.waveTypeOnline)).toBeInTheDocument();
-    expect(screen.getByText(strings.waveTypeOffline)).toBeInTheDocument();
+    // Scope the type assertion to the CARDS — the category filter (1d8d218)
+    // also renders "Online"/"Offline" as buttons, so a page-wide getByText
+    // matches twice.
+    expect(cards[0]).toHaveTextContent(strings.waveTypeOffline); // September
+    const julyCard = cards.find((c) => c.textContent?.includes("July"))!;
+    expect(julyCard).toHaveTextContent(strings.waveTypeOnline);
     // week count for w1
     expect(screen.getByText(`2 ${strings.waveWeeksLabel}`)).toBeInTheDocument();
   });

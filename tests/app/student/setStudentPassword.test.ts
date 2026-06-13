@@ -13,10 +13,12 @@ let updateError: { message: string } | null = null;
 
 const getUser = vi.fn(async () => ({ data: { user: currentUser } }));
 const updateUser = vi.fn(async () => ({ data: {}, error: updateError }));
+// Feature 012 (FR-005): a successful password change revokes OTHER sessions.
+const signOut = vi.fn(async () => ({ error: null }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(async () => ({
-    auth: { getUser, updateUser },
+    auth: { getUser, updateUser, signOut },
   })),
 }));
 
@@ -51,6 +53,8 @@ describe("setStudentPassword (US3.1)", () => {
       setStudentPassword({}, form("longenough", "longenough"))
     ).rejects.toThrow("REDIRECT:/student/dashboard");
     expect(updateUser).toHaveBeenCalledWith({ password: "longenough" });
+    // Other sessions are revoked with the password change (FR-005, feature 012).
+    expect(signOut).toHaveBeenCalledWith({ scope: "others" });
     expect(update).toHaveBeenCalledWith({ status: "active" });
     expect(eq).toHaveBeenCalledWith("user_id", "member-id");
   });

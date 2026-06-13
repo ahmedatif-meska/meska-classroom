@@ -54,8 +54,13 @@ function navigateIfMember(decoded: string): boolean {
   return true;
 }
 
-export default function ScanMemberButton() {
-  const [open, setOpen] = useState(false);
+export default function ScanMemberButton({
+  autoOpen = false,
+}: {
+  /** Open the scanner immediately on mount — the Attendance "Next" return path (FR-013). */
+  autoOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(autoOpen);
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // Hold the active scanner so we can stop the camera on close/unmount.

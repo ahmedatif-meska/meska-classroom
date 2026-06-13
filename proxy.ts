@@ -99,6 +99,8 @@ export const config = {
     "/admin/instructors/:path*",
     "/admin/waves/:path*",
     "/admin/members/:path*",
+    "/admin/attendance/:path*",
+    "/admin/points/:path*",
     "/admin/errors/:path*",
     "/student/dashboard/:path*",
   ],
