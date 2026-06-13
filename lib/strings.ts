@@ -485,6 +485,8 @@ const strings = {
 
   // Admin — Waves (search & filters)
   wavesSearchPlaceholder: "Search waves by name",
+  wavesSearchButton: "Search",
+  wavesFiltersButton: "Filters",
   wavesFilterCategoryLabel: "Category",
   wavesFilterStatusLabel: "Status",
   wavesFilterAll: "All",
