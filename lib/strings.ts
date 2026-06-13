@@ -30,6 +30,11 @@ const strings = {
   adminDashboardSubtitle: "Overview of your admin workspace",
   studentDashboardSubtitle: "Overview of your student workspace",
 
+  // Shared — pagination
+  paginationPrevLabel: "Previous",
+  paginationNextLabel: "Next",
+  paginationGoToPage: "Go to page",
+
   // Admin — Dashboard analytics (feature 013)
   rateNoData: "—",
   dashboardOverviewHeading: "Overview",
@@ -374,6 +379,8 @@ const strings = {
   attendanceNavLabel: "Attendance",
   attendanceTitle: "Attendance",
   attendanceSubtitle: "Track student attendance for each wave per week",
+  attendanceToolsLabel: "Record attendance",
+  attendanceToolsNote: "Scan a student or import an online-wave CSV",
   attendanceScanSectionTitle: "Offline attendance",
   attendanceScanSectionNote:
     "Scan a student's QR code, then pick their offline wave and the week.",

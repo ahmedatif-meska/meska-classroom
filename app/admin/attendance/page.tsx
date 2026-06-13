@@ -183,44 +183,70 @@ export default async function AttendancePage({
           </p>
         </div>
 
-        {/* Offline (scan a member's QR) and Online (email-only CSV import) sit
-            side by side on web, stacked on mobile (enhancement #1). */}
-        <div
-          className={`mt-6 grid gap-6 ${
-            onlineWaves.length > 0 ? "lg:grid-cols-2 lg:items-start" : "max-w-2xl"
-          }`}
-        >
-          {/* Offline — the scanner navigates to the member page, where the
-              attendance panel records the mark. */}
-          <section className="rounded-2xl bg-surface p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-ink">
-              {strings.attendanceScanSectionTitle}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {strings.attendanceScanSectionNote}
-            </p>
-            <div className="mt-4">
-              <ScanMemberButton autoOpen={scan === "1"} />
+        {/* Attendance tools — collapsible (minimized by default; auto-expands when
+            returning to scan the next attendee). Native <details> = no extra JS. */}
+        <details open={scan === "1"} className="group mt-6">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl bg-surface px-6 py-4 shadow-sm [&::-webkit-details-marker]:hidden">
+            <div className="min-w-0">
+              <h2 className="text-lg font-bold text-ink">
+                {strings.attendanceToolsLabel}
+              </h2>
+              <p className="mt-0.5 text-sm text-slate-500">
+                {strings.attendanceToolsNote}
+              </p>
             </div>
-          </section>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </summary>
 
-          {/* Online — email-only CSV import. */}
-          {onlineWaves.length > 0 ? (
+          {/* Offline (scan a member's QR) and Online (email-only CSV import). */}
+          <div
+            className={`mt-4 grid gap-6 ${
+              onlineWaves.length > 0 ? "lg:grid-cols-2 lg:items-start" : "max-w-2xl"
+            }`}
+          >
+            {/* Offline — the scanner navigates to the member page, where the
+                attendance panel records the mark. */}
             <section className="rounded-2xl bg-surface p-6 shadow-sm">
               <h2 className="text-lg font-bold text-ink">
-                {strings.attendanceOnlineSectionTitle}
+                {strings.attendanceScanSectionTitle}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                {strings.attendanceOnlineSectionNote}
+                {strings.attendanceScanSectionNote}
               </p>
               <div className="mt-4">
-                <OnlineAttendanceUpload waves={onlineWaves} />
+                <ScanMemberButton autoOpen={scan === "1"} />
               </div>
             </section>
-          ) : null}
-        </div>
 
-        {/* Records — searchable & filterable table (enhancements #4/#5) */}
+            {/* Online — email-only CSV import. */}
+            {onlineWaves.length > 0 ? (
+              <section className="rounded-2xl bg-surface p-6 shadow-sm">
+                <h2 className="text-lg font-bold text-ink">
+                  {strings.attendanceOnlineSectionTitle}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {strings.attendanceOnlineSectionNote}
+                </p>
+                <div className="mt-4">
+                  <OnlineAttendanceUpload waves={onlineWaves} />
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </details>
+
+        {/* Records table — the main view (searchable, filterable, paginated 10/page). */}
         {records.length === 0 ? (
           <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-surface py-16 text-center">
             <p className="text-sm font-semibold text-ink">

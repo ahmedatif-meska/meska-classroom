@@ -136,7 +136,7 @@ export default function ScanMemberButton({
           setError(null);
           setOpen(true);
         }}
-        className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2.5 text-sm font-semibold text-ink hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+        className="inline-flex items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_18px_rgba(27,91,255,0.45)] transition hover:bg-brand/90 hover:shadow-[0_0_26px_rgba(27,91,255,0.7)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       >
         <CameraIcon />
         {strings.membersScanLabel}

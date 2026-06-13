@@ -3,6 +3,22 @@
 import { useMemo, useState } from "react";
 import strings from "@/lib/strings";
 
+/** Rows shown per page in the records table. */
+const PAGE_SIZE = 10;
+
+/** Page numbers to render: first, last, and a ±1 window, with "…" gaps. */
+function pageItems(current: number, total: number): (number | "…")[] {
+  const items: (number | "…")[] = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - 1 && i <= current + 1)) {
+      items.push(i);
+    } else if (items[items.length - 1] !== "…") {
+      items.push("…");
+    }
+  }
+  return items;
+}
+
 export type AttendanceRecord = {
   id: string;
   student: string;
@@ -71,6 +87,7 @@ export default function AttendanceRecords({
   const [category, setCategory] = useState<string>(ALL);
   const [feedback, setFeedback] = useState<string>(ALL);
   const [showFilters, setShowFilters] = useState(false);
+  const [page, setPage] = useState(1);
 
   // Distinct wave names present in the records — the wave filter's options.
   const waveOptions = useMemo<Option[]>(() => {
@@ -94,6 +111,21 @@ export default function AttendanceRecords({
       return true;
     });
   }, [records, query, wave, category, feedback]);
+
+  // A new search/filter result resets to the first page — done during render
+  // (React's "adjust state when a prop changes" pattern) rather than an effect.
+  const filterKey = `${query}|${wave}|${category}|${feedback}`;
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  let effectivePage = page;
+  if (filterKey !== prevFilterKey) {
+    setPrevFilterKey(filterKey);
+    setPage(1);
+    effectivePage = 1;
+  }
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(effectivePage, pageCount);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
     <div className="mt-6">
@@ -208,7 +240,7 @@ export default function AttendanceRecords({
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => (
+                {paged.map((r) => (
                   <tr
                     key={r.id}
                     className="border-b border-slate-100 last:border-b-0"
@@ -255,6 +287,55 @@ export default function AttendanceRecords({
           </div>
         </div>
       )}
+
+      {/* Pager — only when more than one page of results. */}
+      {filtered.length > PAGE_SIZE ? (
+        <nav
+          aria-label={strings.attendanceTitle}
+          className="mt-4 flex items-center justify-center gap-1.5"
+        >
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={safePage === 1}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            {strings.paginationPrevLabel}
+          </button>
+
+          {pageItems(safePage, pageCount).map((item, i) =>
+            item === "…" ? (
+              <span key={`gap-${i}`} className="px-2 text-sm text-slate-400">
+                …
+              </span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setPage(item)}
+                aria-label={`${strings.paginationGoToPage} ${item}`}
+                aria-current={item === safePage ? "page" : undefined}
+                className={`min-w-[2.25rem] rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+                  item === safePage
+                    ? "bg-brand text-white shadow-[0_0_14px_rgba(27,91,255,0.45)]"
+                    : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {item}
+              </button>
+            )
+          )}
+
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+            disabled={safePage === pageCount}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            {strings.paginationNextLabel}
+          </button>
+        </nav>
+      ) : null}
     </div>
   );
 }
