@@ -26,6 +26,32 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "30mb",
   },
   devIndicators: false,
+  // Compatibility shim for the shared Supabase "Reset Password" email template.
+  // That single template (Auth → Email Templates) was authored for the admin
+  // flow (feature 003) and hardcodes `/admin/auth/confirm`; student recovery
+  // (feature 012) reuses the same template, so the link concatenates the
+  // student `redirectTo` with the template's admin path —
+  // `/student/auth/confirm/admin/auth/confirm?token_hash=…&type=recovery` — a
+  // 404. Strip any segments appended AFTER a confirm route back to the route
+  // itself (the query string, incl. token_hash/type, is preserved by Next), so
+  // both panels' recovery links resolve regardless of the template's suffix.
+  // Root-cause fix is to make the template panel-agnostic
+  // (`{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery`); this shim
+  // then becomes inert and may be removed.
+  async redirects() {
+    return [
+      {
+        source: "/student/auth/confirm/:extra+",
+        destination: "/student/auth/confirm",
+        permanent: false,
+      },
+      {
+        source: "/admin/auth/confirm/:extra+",
+        destination: "/admin/auth/confirm",
+        permanent: false,
+      },
+    ];
+  },
   images: {
     remotePatterns: supabaseHost
       ? [
