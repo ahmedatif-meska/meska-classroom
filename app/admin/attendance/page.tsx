@@ -19,7 +19,7 @@ type AttendanceRow = {
   student_id: string | null;
   week_id: string | null;
   student: { full_name: string | null; email: string | null } | null;
-  tenant: { name: string } | null;
+  tenant: { name: string; type: string } | null;
   week: { position: number; title: string | null } | null;
 };
 
@@ -97,7 +97,7 @@ export default async function AttendancePage({
     supabase
       .from("wave_attendance")
       .select(
-        "id, attended_on, method, student_id, week_id, student:students(full_name, email), tenant:tenants(name), week:wave_weeks(position, title)"
+        "id, attended_on, method, student_id, week_id, student:students(full_name, email), tenant:tenants(name, type), week:wave_weeks(position, title)"
       )
       .order("attended_on", { ascending: false })
       .order("created_at", { ascending: false })
@@ -119,35 +119,52 @@ export default async function AttendancePage({
     };
   });
 
-  // Which (student, week) pairs in this record set have feedback — drives the
-  // "Feedback given" column (enhancement #4). One bounded read over the same
-  // students/weeks already on screen; matched per row by (student_id, week_id).
-  const feedbackPairs = new Set<string>();
+  // The feedback (ratings + comment) each (student, week) pair gave — drives the
+  // instructor-rating / session-rating / comment columns (enhancement #2). One
+  // bounded read over the same students/weeks already on screen; matched per row
+  // by (student_id, week_id). A present row means feedback was given.
+  type FeedbackValue = {
+    session_rating: number | null;
+    instructor_rating: number | null;
+    comment: string | null;
+  };
+  const feedbackByPair = new Map<string, FeedbackValue>();
   const studentIds = [...new Set(rows.map((r) => r.student_id).filter(Boolean))];
   const weekIds = [...new Set(rows.map((r) => r.week_id).filter(Boolean))];
   if (studentIds.length > 0 && weekIds.length > 0) {
     const { data: fb } = await supabase
       .from("wave_feedback")
-      .select("student_id, week_id")
+      .select("student_id, week_id, session_rating, instructor_rating, comment")
       .in("student_id", studentIds as string[])
       .in("week_id", weekIds as string[]);
-    for (const f of (fb ?? []) as { student_id: string; week_id: string }[]) {
-      feedbackPairs.add(`${f.student_id}:${f.week_id}`);
+    for (const f of (fb ?? []) as ({ student_id: string; week_id: string } & FeedbackValue)[]) {
+      feedbackByPair.set(`${f.student_id}:${f.week_id}`, {
+        session_rating: f.session_rating,
+        instructor_rating: f.instructor_rating,
+        comment: f.comment,
+      });
     }
   }
 
-  const records: AttendanceRecord[] = rows.map((r) => ({
-    id: r.id,
-    student: r.student?.full_name || r.student?.email || "—",
-    wave: r.tenant?.name ?? "—",
-    week: weekLabel(r.week),
-    date: r.attended_on,
-    method: r.method === "csv" ? "csv" : "scan",
-    feedbackGiven:
-      r.student_id != null &&
-      r.week_id != null &&
-      feedbackPairs.has(`${r.student_id}:${r.week_id}`),
-  }));
+  const records: AttendanceRecord[] = rows.map((r) => {
+    const fb =
+      r.student_id != null && r.week_id != null
+        ? feedbackByPair.get(`${r.student_id}:${r.week_id}`)
+        : undefined;
+    return {
+      id: r.id,
+      student: r.student?.full_name || r.student?.email || "—",
+      email: r.student?.email ?? "—",
+      wave: r.tenant?.name ?? "—",
+      waveCategory: r.tenant?.type === "online" ? "online" : "offline",
+      week: weekLabel(r.week),
+      date: r.attended_on,
+      instructorRating: fb?.instructor_rating ?? null,
+      sessionRating: fb?.session_rating ?? null,
+      comment: fb?.comment?.trim() || null,
+      feedbackGiven: fb != null,
+    };
+  });
 
   return (
     <DashboardShell
@@ -166,34 +183,42 @@ export default async function AttendancePage({
           </p>
         </div>
 
-        {/* Offline — scan a member's QR (the scanner navigates to the member
-            page, where the attendance panel records the mark). */}
-        <section className="mt-6 max-w-2xl rounded-2xl bg-surface p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-ink">
-            {strings.attendanceScanSectionTitle}
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">
-            {strings.attendanceScanSectionNote}
-          </p>
-          <div className="mt-4">
-            <ScanMemberButton autoOpen={scan === "1"} />
-          </div>
-        </section>
-
-        {/* Online — email-only CSV import. */}
-        {onlineWaves.length > 0 ? (
-          <section className="mt-6 max-w-2xl rounded-2xl bg-surface p-6 shadow-sm">
+        {/* Offline (scan a member's QR) and Online (email-only CSV import) sit
+            side by side on web, stacked on mobile (enhancement #1). */}
+        <div
+          className={`mt-6 grid gap-6 ${
+            onlineWaves.length > 0 ? "lg:grid-cols-2 lg:items-start" : "max-w-2xl"
+          }`}
+        >
+          {/* Offline — the scanner navigates to the member page, where the
+              attendance panel records the mark. */}
+          <section className="rounded-2xl bg-surface p-6 shadow-sm">
             <h2 className="text-lg font-bold text-ink">
-              {strings.attendanceOnlineSectionTitle}
+              {strings.attendanceScanSectionTitle}
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              {strings.attendanceOnlineSectionNote}
+              {strings.attendanceScanSectionNote}
             </p>
             <div className="mt-4">
-              <OnlineAttendanceUpload waves={onlineWaves} />
+              <ScanMemberButton autoOpen={scan === "1"} />
             </div>
           </section>
-        ) : null}
+
+          {/* Online — email-only CSV import. */}
+          {onlineWaves.length > 0 ? (
+            <section className="rounded-2xl bg-surface p-6 shadow-sm">
+              <h2 className="text-lg font-bold text-ink">
+                {strings.attendanceOnlineSectionTitle}
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {strings.attendanceOnlineSectionNote}
+              </p>
+              <div className="mt-4">
+                <OnlineAttendanceUpload waves={onlineWaves} />
+              </div>
+            </section>
+          ) : null}
+        </div>
 
         {/* Records — searchable & filterable table (enhancements #4/#5) */}
         {records.length === 0 ? (
